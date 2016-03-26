@@ -94,8 +94,8 @@ function mkfiledirs () {
 	    # Change Directory to new Directory
 	    cd $SUBDIRNAME
 	    
-	    # Make keys
-	    mkkeyfiles
+	    # Make Dummy files
+	    mkdummyfiles
 	    
 	    cd ..
 	    
@@ -269,7 +269,7 @@ function main () {
     if [ ${MAINDIRNUM} -gt 1 ]; then
 	mkmaindirs
     else
-	mkkeyfiles
+	mkdummyfiles
     fi
     cd ..
 }
