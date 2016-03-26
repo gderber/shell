@@ -1,0 +1,277 @@
+#!/bin/bash
+
+
+function help() {
+    cat <<EOF
+Arguments     Description
+
+EOF
+}
+
+function dectohex() { 
+    case $BASE in
+	hexlower|hexupper) HEX=`bc <<< "obase=16; $NUM"`;;
+	oct) HEX=`bc <<< "obase=8; $NUM`;;
+	*) HEX=$NUM;;
+    esac
+}
+
+function mkmaindirs () {
+#    echo "Make Main Directories"
+    MCOUNT=0
+    # While X < $MAINDIRNUM
+    while [ $MCOUNT -lt $MAINDIRNUM ]; do
+	
+	# Convert number to HEX
+	NUM=$((${MCOUNT}+${MAINDIROFFSET}))
+	dectohex
+	#echo $DIRZEROS
+	case $BASE in
+	    hexlower)
+		HEX="0x${HEX}"
+		DIRNAME=`printf "%0*x%s\n" $DIRZEROS $HEX`
+		;;
+	    hexupper)
+		HEX="0x${HEX}"
+		DIRNAME=`printf "%0*X%s\n" $DIRZEROS $HEX`
+		;;
+	    oct)
+		DIRNAME=`printf "%0*o%s\n" $DIRZEROS $HEX`
+		;;
+	    *)
+		DIRNAME=`printf "%0*d%s\n" $DIRZEROS $HEX`
+		;;
+	esac
+
+	echo $DIRNAME
+
+#	exit 5
+	# Make Directory with Hex Name
+	mkdir -p $DIRNAME
+
+	# Change Directory to new Directory
+	cd $DIRNAME
+
+	# Make subfolders
+	mkfiledirs
+
+	cd ..
+
+	MCOUNT=$((MCOUNT+1))
+    done    
+}
+
+function mkfiledirs () {
+    if [ $SUBDIRNUM -gt 1 ]; then
+	#    echo "Make File Directories"
+	SCOUNT=0
+	# While X <= $SUBDIRNUM
+	while [ $SCOUNT -lt $SUBDIRNUM ]; do
+	    
+	    # Convert number to HEX
+	    NUM=${SCOUNT}
+	    dectohex
+	    case $BASE in
+		hexlower)
+		    HEX="0x${HEX}"
+		    SUBDIRNAME=`printf "%0*x%s\n" $SUBDIRZEROS $HEX`
+		    ;;
+		hexupper)
+		    HEX="0x${HEX}"
+		    SUBDIRNAME=`printf "%0*X%s\n" $SUBDIRZEROS $HEX`
+		    ;;
+		oct)
+		    SUBDIRNAME=`printf "%0*o%s\n" $SUBDIRZEROS $HEX`
+		    ;;
+		*)
+		    SUBDIRNAME=`printf "%0*d%s\n" $SUBDIRZEROS $HEX`
+		    ;;
+	    esac
+	    
+	    # Make Directory with Hex Name
+	    mkdir -p $SUBDIRNAME
+	    
+	    # Change Directory to new Directory
+	    cd $SUBDIRNAME
+	    
+	    # Make keys
+	    mkkeyfiles
+	    
+	    cd ..
+	    
+	    SCOUNT=$((SCOUNT+1))
+	done
+    else
+	mkdummyfiles
+    fi
+
+}
+
+function mkdummyfiles () {
+#    echo "Make Files"
+
+    FCOUNT=0
+    # While X <= $FILESPERSUBDIR
+    while [ $FCOUNT -lt $FILESPERSUBDIR ]; do
+	
+	# Convert number to HEX
+	NUM=${FILENUM}
+	dectohex
+	case $BASE in
+	    hexlower)
+		HEX="0x${HEX}"
+		FILENAME=`printf "%0*x%s\n" $FILEZEROS $HEX`
+		;;
+	    hexupper)
+		HEX="0x${HEX}"
+		FILENAME=`printf "%0*X%s\n" $FILEZEROS $HEX`
+		;;
+	    oct)
+		FILENAME=`printf "%0*o%s\n" $FILEZEROS $HEX`
+		;;
+	    *)
+		FILENAME=`printf "%0*d%s\n" $FILEZEROS $HEX`
+		;;
+	esac
+	echo "Generating File ${FILENAME} of ${NUMFILES}"
+	# Make Dummy File with Hex Name
+	dd if=/dev/urandom of=${FILENAME} bs=${FBYTES} count=1 &> /dev/null
+	FCOUNT=$((FCOUNT+1))
+	FILENUM=$((FILENUM+1))
+	
+	if [ ${FILENUM} -gt ${NUMFILES} ]; then
+	    exit 1
+	fi
+    done
+}
+
+# Calculates the number of files to generate
+function numfiles () {
+    
+    # Hack Solution Total space used is 2x expected
+    #    TSIZE=$(($TSIZE/2))
+    
+    # Convert Filesize to Bytes
+    if [ "${SUNIT}" == "KB" ]; then
+	FBYTES=$((${FSIZE}*1024))
+    else
+	FBYTES=${FSIZE}
+    fi
+    
+    # Convert Total Size to Bytes
+    if [ "${TUNIT}" == "KB" ]; then
+	TBYTES=$((${TSIZE}*1024))
+    elif [ "${TUNIT}" == "MB" ]; then
+	TBYTES=$((${TSIZE}*1024*1024))
+    elif [ "${TUNIT}" == "GB" ];  then
+	TBYTES=$((${TSIZE}*1024*1024*1024))
+    else
+	TBYTES=${TSIZE}
+    fi
+    
+    echo $TBYTES
+    
+    # Calculate space required for the directory file
+    DBYTES=$((${MAINDIRNUM}*${SUBDIRNUM}*1024*4))
+    
+    TBYTES=$(($TBYTES-$DBYTES))
+    echo $FBYTES
+    echo $DBYTES
+    echo $TBYTES
+    
+    NUMFILES=$((${TBYTES}/${FBYTES}))
+    FILESPERMAINDIR=$((${NUMFILES}/${MAINDIRNUM}))
+    FILESPERSUBDIR=$((${FILESPERMAINDIR}/${SUBDIRNUM}))
+	
+
+
+    NUM=${NUMFILES}
+    dectohex
+    FILEZEROS=`echo $HEX| wc -m`
+    
+    NUM=$((MAINDIRNUM+MAINDIROFFSET))
+    dectohex
+    DIRZEROS=`echo $HEX| wc -m`
+    
+    NUM=SUBDIRNUM
+    dectohex
+    SUBDIRZEROS=`echo $HEX| wc -m`
+    
+    if [ "${DEBUG}" == "y" ]; then
+	echo "Numfiles = $NUMFILES"
+	echo "Files per Sub Dir = $FILESPERSUBDIR"
+    fi
+    
+    DIRZEROS=$((DIRZEROS-1))
+    SUBDIRZEROS=$((SUBDIRZEROS-1))
+    FILEZEROS=$((FILEZEROS-1))
+
+    echo $FILEZEROS
+    echo $DIRZEROS
+    echo $SUBDIRZEROS
+	
+    #exit 4
+
+    if [ $FILESPERSUBDIR -eq 0 ]; then
+	echo "Too small of space"
+	exit 2
+    fi
+}
+
+function main () {
+    # Defaults
+    # Total Size
+    TSIZE=100
+    TUNIT=MB
+    # File Size
+    FSIZE=4
+    SUNIT=KB
+    FILENUM=0
+    NUMFILES=0
+
+    MAINDIRNUM=300
+    SUBDIRNUM=12
+    MAINDIROFFSET=1900
+    BASEDIR=dummyfiles
+
+
+
+    while [ -n "$1" ]; do
+	case $1 in
+	    -h|-hl) BASE="hexlower"; shift 1;;
+	    -hu) BASE="hexupper"; shift 1;;
+	    -8) BASE="oct"; shift 1;;
+	    -t) TSIZE=$2; shift 2;;
+	    -tu) TUNIT=$2; shift 2;;
+	    -s) SIZE=$2; shift 2;;
+	    -su) SUNIT=$2; shift 2;;
+	    -m) MAINDIRNUM=$2; shift 2;;
+	    -s) SUBDIRNUM=$2; shift 2;;
+	    -o) MAINDIROFFSET=$2; shift 2;;
+	    -b|--basedir) BASEDIR=$2; shift 2;;
+	    -n) NUMFILES=$2; shift 2;;
+	    *)    help; exit;;
+	esac
+    done
+    
+
+    if [ ${MAINDIRNUM} -le 1 ]; then
+	SUBDIRNUM=1
+    fi
+    echo $MAINDIRNUM
+    echo $SUBDIRNUM
+    
+    #exit 15
+    
+    mkdir -p ${BASEDIR}
+    cd ${BASEDIR}
+    numfiles
+    if [ ${MAINDIRNUM} -gt 1 ]; then
+	mkmaindirs
+    else
+	mkkeyfiles
+    fi
+    cd ..
+}
+
+main $@
