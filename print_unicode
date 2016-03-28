@@ -1,0 +1,12 @@
+#!/bin/bash
+
+X=0
+
+while [ $X -lt  20000 ]; do
+    HEX=`bc <<< "obase=16; $X"`
+    HEX="0x${HEX}"
+    UCODENAME=`printf "%0*x\n" 4 $HEX`
+    UCODECHAR=`printf "\u%0*x\n" 4 $HEX`
+    echo -e "Unicode ${UCODENAME} = ${UCODECHAR}"
+    X=$((X + 1))
+done
