@@ -1,0 +1,42 @@
+#!/bin/bash
+
+###########################################################
+#
+# Memory Usage
+# memusage
+#
+# This program displays the amount of memory another
+# program is using.
+#
+###########################################################
+
+###########################################################
+#
+# function help
+#
+# Displays usage information
+#
+###########################################################
+function help () {
+    cat<<EOF
+Usage: memusage <program>
+EOF
+}
+
+###########################################################
+#
+# function main
+#
+# Prints memory usage
+#
+###########################################################
+function main () {
+    if [[ -z $1 ]]; then
+	help
+    else
+	ps -eo pmem,comm | grep $1 | awk '{sum+=$1} END {print sum " % of RAM"}'
+    fi
+}
+
+# Run main
+main $@

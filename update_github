@@ -1,0 +1,93 @@
+#!/bin/bash
+
+######################################################
+#
+# This script will update github with any changes
+# made to ALL repos inside the REPO folder.
+#
+#
+######################################################
+
+
+function main () {
+    # Global Definitions
+    local GITHUB_REPO_DIR=src
+    local DEBUG=0 # Set to 1 if debugging, 0 if not
+    
+    cd $HOME
+    cd $GITHUB_REPO_DIR
+
+    # Get list of repos
+    for REPO in $(ls | cut -d/ -f1); do
+	SHORT_REPO=$(echo ${REPO}| cut -d- -f2-)
+	cd $REPO
+    
+	# Verify if actual repo
+	local GStat="$(git status --porcelain -b 2>/dev/null | tr '\n' ':')"
+	if [[ "${GStat}" ]] ; then
+	    # This folder is a git repo
+	    if [[ ${DEBUG} -eq 1 ]]; then
+		echo $SHORT_REPO repository # For testing purposes
+	    fi
+	    update_repos	
+	    cd ..
+	else
+	    # This folder is not a git repo, exit
+	    cd ..
+	fi
+    done
+    exit 0
+}
+
+function update_repos () {
+    if [[ ${DEBUG} -eq 1 ]]; then
+	echo updating $REPO # For testing purposes
+    fi
+
+    # Check if Forked Repo
+    FORKED_STATUS=$(check_forked_status)
+    if [[ ${DEBUG} -eq 1 ]]; then
+	echo $FORKED_STATUS
+    fi
+
+    # If Forked Repo, sync with upstream
+    if [[ "${FORKED_STATUS}" == "true" ]]; then
+
+
+	# Unreal Engine and Unreal Tournament upstream repos do not use
+	# the "master" branch.  Instead they use:
+	# Unreal Engine: release
+	# Unreal Tournament: release
+	#
+	case $SHORT_REPO in
+	    UnrealEngine) BRANCH="release";;
+	    UnrealTournament) BRANCH="release";;
+	    *) BRANCH="master";;
+	esac
+	
+	git fetch upstream && 
+	git checkout "${BRANCH}" &&
+	git merge upstream/"${BRANCH}"
+    else
+    
+	# Commit changes
+	git commit -m "Auto Update"
+    fi
+
+    # Upload to github
+    git push origin master
+
+}
+
+function check_forked_status () {
+    UPSTREAM=$(git remote | grep upstream)
+    if [[ "${UPSTREAM}" == "upstream" ]]; then
+	FORKED=true
+    else
+	FORKED=false
+    fi
+    UPSTREAM="nope"
+    echo $FORKED
+}
+
+main $@

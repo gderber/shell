@@ -1,0 +1,247 @@
+#!/bin/bash
+
+###########################################################
+#
+# Extract
+# extract
+#
+# This program extracts any type of compressed file
+#
+# https://github.com/xvoland/Extract/blob/master/extract.sh
+#
+###########################################################
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage: extract <path/filename>.<zip|rar|bz2|gz|tbz2|tgz|Z|7z|xz|exe|tar.bz2|tar.gz|tar.xz>
+
+Options   
+-a        Extract all compressed files
+-t        Extract Tar files
+	    -l) UNLMZA="*.lmza"
+	    -b) BUNZIP="*.bz2"
+	    -r) RAR="*.rar"
+	    -g) GUNZIP="*.gz"
+	    -z) ZIP="*.zip"
+	    -Z) Z="*.Z"
+	    -7) SZIP="*.7z"
+	    -x) XZ="*.xz"
+	    -e) EXE="*.exe"
+
+	    --delete) DELETE=yes
+	    --debug) DEBUG=yes
+
+EOF
+}
+
+###########################################################
+#
+# function extract
+#
+# Handy Extract Program
+#
+###########################################################
+function extract() {
+    if [ -f "${1}" ] ; then
+	case "${1}" in
+	    *.tar.bz2|*.tbz2) tar xvjf "${1}" ;;
+	    *.tar.gz|*.tgz) tar xvzf "${1}" ;;
+	    *.tar.xz) tar xvJf "${1}" ;;
+	    *.lzma) unlzma ./"${1}" ;;
+	    *.bz2) bunzip2 -k "${1}" ;;
+	    *.rar) unrar x "${1}" ;;
+	    *.gz) gunzip -k "${1}" ;;
+	    *.tar) tar xvf "${1}" ;;
+	    *.zip) unzip "${1}" ;;
+	    *.Z) uncompress "${1}" ;;
+	    *.7z) 7z x "${1}" ;;
+	    *.xz) unxz ./"${1}" ;;
+	    *.exe) cabextract ./"${1}" ;;
+	    *) echo "'${1}' cannot be extracted via >extract<" ;;
+	esac
+    fi
+}
+
+###########################################################
+#
+# function massextract
+#
+# Extract multiple files
+#
+###########################################################
+function massextract () {
+    EXTENTION=" "
+    # Extract TAR files
+    if [[ -n ${TAR} ]]; then
+	[[ $(ls *.tar) ]] && EXTENTION="${EXTENTION}*.tar "
+	[[ $(ls *.tar.gz) ]] && EXTENTION="${EXTENTION}*.tar.gz "
+	[[ $(ls *.tar.bz2) ]] && EXTENTION="${EXTENTION}*.tar.bz2 "
+	[[ $(ls *.tgz) ]] && EXTENTION="${EXTENTION}*.tgz "
+	[[ $(ls *.tbz2) ]] && EXTENTION="${EXTENTION}*.tbz2 "
+    fi
+    # UNLZMA
+    if [[ -n ${UNLZMA} ]]; then
+	[[ $(ls ${UNLZMA}) ]] && EXTENTION="${EXTENTION} ${UNZLMA}"
+    fi
+    # BUNZIP
+    if [[ -n ${BUNZIP} ]]; then
+	if [[ "$(ls ${BUNZIP})" ]]; then
+	    [[ "$(ls ${BUNZIP})" != "$(ls *.tar.bz2)" ]] && EXTENTION="${EXTENTION} ${BUNZIP}"
+	fi
+    fi
+    if [[ -n ${RAR} ]]; then
+	[[ $(ls ${RAR}) ]] && EXTENTION="${EXTENTION} ${RAR}"
+    fi
+    if [[ -n ${GUNZIP} ]]; then
+	if [[ $(ls ${GUNZIP}) ]]; then
+	    [[ "$(ls ${GUNZIP})" != "$(ls *.tar.gz)" ]] && EXTENTION="${EXTENTION} ${GUNZIP}"
+	fi
+    fi
+    if [[ -n ${ZIP} ]]; then
+	[[ $(ls ${ZIP}) ]] && EXTENTION="${EXTENTION} ${ZIP}"
+    fi
+    if [[ -n ${Z} ]]; then
+	[[ $(ls ${Z}) ]] && EXTENTION="${EXTENTION} ${Z}"
+    fi
+    if [[ -n ${SZIP} ]]; then
+	[[ $(ls ${SZIP}) ]] && EXTENTION="${EXTENTION} ${SZIP}"
+    fi
+    if [[ -n ${XZ} ]]; then
+	[[ $(ls ${XZ}) ]] && EXTENTION="${EXTENTION} ${XZ}"
+    fi
+    if [[ -n ${EXE} ]]; then
+	[[ $(ls ${EXE}) ]] && EXTENTION="${EXTENTION} ${EXE}"
+    fi
+
+
+    if [[ "${DEBUG}" == "yes" ]]; then
+	echo "${EXTENTION}"
+    fi
+
+    for FILE in ${EXTENTION}
+    do
+	if [[ "$FILE" != "*.tar" ]] || [[ "$FILE" != "*.tar.gz" ]] || [[ "$FILE" != "*.tar.bz2" ]] || [[ "$FILE" != "*.tgz" ]] || [[ "$FILE" != "*.tbz2" ]] || [[ "$FILE" != "*.tar.xz" ]] || [[ "$FILE" != "*.lmza" ]] || [[ "$FILE" != "*.bz2" ]] || [[ "$FILE" != "*.rar" ]] || [[ "$FILE" != "*.gz" ]] || [[ "$FILE" != "*.zip" ]] || [[ "$FILE" != "*.Z" ]] || [[ "$FILE" != "*.7z" ]] || [[ "$FILE" != "*.xz" ]] || [[ "$FILE" != "\*.exe" ]]; then
+	    if [[ "$DEBUG" == "yes" ]]; then
+		echo "$FILE"
+	    fi
+	    extractfile
+	fi
+    done
+}
+
+###########################################################
+#
+# function massextract
+#
+# creates a new directory to extract into
+#
+###########################################################
+function extractfile () {
+    DIRNAME=$(echo ${FILE} | cut -d. -f1)
+    
+    if [[ "${DEBUG}" == "yes" ]]; then
+	echo "DIRNAME=${DIRNAME}"
+    fi
+
+    if mkdir "${DIRNAME}"
+    then
+	if cd "${DIRNAME}"
+	then
+	    extract ../"${FILE}"
+	    cd ..
+	    # If delete option selected
+	if [[ "${DELETE}" == "yes" ]]; then
+	    rm -f "${FILE}" # delete the original zip file
+	fi
+	else
+	    echo 'Could not unpack "${FILE}" - cd failed'
+	fi
+    else
+	echo 'Could not unpack "${FILE}" - mkdir failed'
+    fi
+}
+
+###########################################################
+#
+# function removefiles
+#
+#
+#
+###########################################################
+function removefiles () {
+
+    # tar
+    # 1.
+    # tar tf <file.tar.gz> | sort -r | while read file; do if [ -d "$file" ]; then rmdir "$file"; else rm -f "$file"; fi; done
+    # 2.
+    # tar -tf <file.tar.gz> | xargs rm -r
+
+    # zip
+     unzip -lt foo.zip | grep testing | awk '{print $2}' | xargs rm -r
+
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main() {
+
+    echo "$1"
+
+    while [ -n "$1" ]; do
+	echo "$1"
+	
+	case "$1" in
+	    -a) TAR="*.tar *.tar.gz *.tar.bz2 *.tgz *.tbz2 *.tar.xz"
+		UNLMZA="*.lmza"
+		BUNZIP="*.bz2"
+		RAR="*.rar"
+		GUNZIP="*.gz"
+		ZIP="*.zip"
+		Z="*.Z"
+		SZIP="*.7z"
+		XZ="*.xz"
+		EXE="*.exe"
+		shift 1
+		;;
+	    -t) TAR="*.tar *.tar.gz *.tar.bz2 *.tgz *.tbz2 *.tar.xz"
+		shift 1
+		;;
+	    -l) UNLMZA="*.lmza" ; shift 1;;
+	    -b) BUNZIP="*.bz2"; shift 1 ;;
+	    -r) RAR="*.rar"; shift 1;;
+	    -g) GUNZIP="*.gz"; shift 1 ;;
+	    -z) ZIP="*.zip"; shift 1 ;;
+	    -Z) Z="*.Z" ; shift 1;;
+	    -7) SZIP="*.7z" ; shift 1;;
+	    -x) XZ="*.xz"; shift 1;;
+	    -e) EXE="*.exe" ; shift 1;;
+	    --delete) DELETE=yes; shift 1;;
+	    --debug) DEBUG=yes; shift 1;;
+	    *.*) FILE="$1"
+		extract $FILE
+		exit
+		;;
+	    *) help; exit;;
+	esac
+    done
+
+    if [[ "${DEBUG}" == "yes" ]]; then
+	echo "While loop finished"
+    fi
+
+    massextract
+}
+
+main "$@"

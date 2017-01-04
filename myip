@@ -1,0 +1,11 @@
+#!/bin/bash
+
+function myip () {
+    echo $(dig +short myip.opendns.com @resolver1.opendns.com)
+}
+
+function main () {
+    myip
+}
+
+main $@

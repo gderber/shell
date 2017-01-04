@@ -1,0 +1,49 @@
+#!/bin/bash
+###########################################################
+#
+# Writespeed
+#
+# Processor / memory bandwidthd? in GB/s
+# Read 32GB zero's and throw them away. 
+#
+###########################################################
+
+# Libraries
+# source ${HOME}/bin/libs/ask
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+}
+
+function writespeed () {
+    dd if=/dev/zero of=/dev/null bs=1M count=32768
+}
+
+main "$@"

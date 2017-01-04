@@ -1,0 +1,78 @@
+#!/bin/bash
+###########################################################
+#
+# netstatus
+#
+#
+#
+#
+###########################################################
+
+# Libraries
+source ${HOME}/bin/libs/colors
+source ${HOME}/bin/libs/commonfunctions
+source ${HOME}/bin/libs/batteryinfo_functions
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function netinfo() {
+    local EXTIPINFO=$(myip)
+
+    if [[ -x /sbin/ifconfig ]]; then
+	local IPINFO=$(ipinfo)
+    fi
+    if [[ -x /usr/bin/geoiplookup ]]; then
+	local ISPINFO=$(ispinfo)
+    fi
+
+
+    printf "Ext IP Address..: %s  " ${EXTIPINFO}
+    if [[ -x /sbin/ifconfig ]]; then
+	printf "IP Address: %s \n" ${IPINFO}
+    fi
+    if [[ -x /usr/bin/geoiplookup ]]; then
+	printf "ISP.............: %s %s %s \n" ${ISPINFO}
+    fi
+    
+    echo -e "\n${BRED}Open connections :$DC "; netstat -pan --inet; 
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+    define_colors
+    netinfo
+}
+
+main "$@"

@@ -1,0 +1,49 @@
+#!/bin/bash
+###########################################################
+#
+# Remote Audio
+# remotemic
+#
+# output your microphone to a remote computer's speaker 
+#
+###########################################################
+
+# Libraries
+# source ${HOME}/bin/libs/ask
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+function remotemic () {
+arecord -f dat | ssh -C user@host aplay -f dat
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+}
+
+main "$@"

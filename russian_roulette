@@ -1,0 +1,6 @@
+#!/bin/bash
+
+[ $[ $RANDOM % 6 ] -eq 0 ] && 
+echo 'Bang!' && 
+ls / || 
+echo 'Click...'

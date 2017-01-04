@@ -1,0 +1,210 @@
+#!/bin/bash
+
+#####################################################
+#
+# Individual Comics
+#
+#############################################
+
+function foxtrot () {
+    START_DATE=1996-03-11
+    COMIC=foxtrot
+#    if [ "$DATE" -lt "2007-01-01" ]; then
+#	DAYS_OF_WEEK=all
+#	COMIC=foxtrot
+#    else
+#	if [ DAYS_OF_WEEK=Sun ]; then
+#	    COMIC=foxtrot
+#	else
+#	    COMIC=foxtrotclassics
+#	fi
+#    fi
+}
+
+function calvin () {
+    START_DATE=1985-11-18
+    END_DATE=1995-12-31
+    DAYSOFWEEK="Sun Mon Tue Wed Thu Fri Sat"
+    COMIC=calvinandhobbes
+}
+
+function bc () {
+    START_DATE=unknown
+    COMIC=bc
+}
+
+function wid () {
+    START_DATE=1962-03-22
+    COMIC=wizardofid
+}
+
+function garfield () {
+    START_DATE=1978-06-19
+    COMIC=garfield
+}
+
+function garfield-garfield () {
+#    START_DATE=2005-01-01
+    echo START_DATE
+}
+
+function 9to5 () {
+    COMIC=9to5
+}
+
+function closetohome () {
+    COMIC=closetohome
+}
+
+function inthebleachers () {
+    COMIC=inthebleachers
+}
+
+function pluggers () {
+    COMIC=pluggers
+}
+
+function reallifeadventures () {
+    COMIC=reallifeadventures
+}
+
+function nonsequitur () {
+    COMIC=nonsequitur
+}
+
+function boundandgagged () {
+    COMIC=bound
+}
+
+function ziggy () {
+    COMIC=ziggy
+}
+
+function shoe () {
+    COMIC=shoe
+}
+
+function frankandernest () {
+    COMIC=frank\&ernest
+}
+
+function computoon () {
+    COMIC=computoon
+}
+
+function heathcliff () {
+    COMIC=heathcliff
+}
+
+###################################
+#
+# apotd
+#
+# Astronomy Picture of the Day
+#
+###################################
+
+function apod () {
+    START_DATE=1995-06-16
+    COMIC=apod
+}
+
+function apodbig () {
+    apod
+    COMIC=apodbig
+}
+
+####################################
+#
+# Broadside
+#
+# Navy Broadside Cartoons
+#
+####################################
+
+function navybroadside () {
+    COMIC=broadside
+}
+
+function marinegreenside () {
+    COMIC=greenside
+}
+
+function dilbert () {
+    COMIC=dilbert
+}
+
+function peanuts () {
+    COMIC=peanuts
+}
+
+###########################################
+#
+# Penny Arcade
+#
+###########################################
+function pennyarcade () {
+    COMIC=pennyarcade
+}
+
+function userfriendly () {
+    COMIC=userfriendly
+}
+
+function hagarthehorrible () {
+    COMIC=hagarthehorrible
+}
+
+function beetlebailey () {
+    COMIC=beetlebailey
+}
+
+function blondie () {
+    COMIC=blondie
+}
+
+function grimmy  () {
+    COMIC=grimmy
+}
+
+function snuffysmith () {
+    COMIC=snuffysmith
+}
+
+#######################################
+#
+# Domai.com
+#
+# img src="http://domai.com/-today/bd.jpg" alt="DOMAI pic of the day"
+#
+#######################################
+function domai () {
+    START_DATE=$TODAY
+    NAUGHTY=1
+    COMIC=domai
+}
+
+function redeye () {
+    COMIC=redeye
+}
+
+function dennisthemenace () {
+    COMIC=dennisthemenace
+}
+
+function familycircus () {
+    COMIC=familycircus
+}
+
+function marmaduke () {
+    COMIC=marmaduke
+}
+
+function pcnpixel () {
+    COMIC=pc_n_pixel
+}
+
+function sinfest () {
+    COMIC=sinfest
+}
+

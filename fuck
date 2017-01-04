@@ -1,0 +1,26 @@
+#!/bin/bash
+###########################################################
+#
+# Fuck Off
+# fuck
+#
+# Fun alias for shutting down the computer
+#
+###########################################################
+
+###########################################################
+#
+# function main
+#
+# 
+#
+###########################################################
+function main () {
+    if [ "$1" == "off" ]; then
+	sudo poweroff
+    else
+	echo "\"fuck\" is not a recognised command"
+    fi
+}
+
+main $@

@@ -1,0 +1,53 @@
+#!/bin/bash
+###########################################################
+#
+# Template
+#
+#
+#
+###########################################################
+
+# Libraries
+# source ${HOME}/bin/libs/ask
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+    installdialog
+}
+
+function installdialog (){
+for i in {0..600}; do 
+    echo $i
+    sleep 1
+done | 
+dialog --gauge "Install..." 6 40
+}
+
+main "$@"

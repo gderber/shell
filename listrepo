@@ -1,0 +1,60 @@
+#!/bin/bash
+###########################################################
+#
+# Template
+#
+#
+#
+###########################################################
+
+# Libraries
+# source ${HOME}/bin/libs/ask
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+function listrepo () {
+    # listppa Script to get all the PPA installed on a system ready to share for reininstall
+    for APT in `find /etc/apt/ -name \*.list`; do
+	grep "deb" $APT | while read ENTRY ; do
+#	grep -o "^deb http://ppa.launchpad.net/[a-z0-9\-]\+/[a-z0-9\-]\+" $APT | while read ENTRY ; do
+            USER=`echo $ENTRY | cut -d/ -f4`
+            PPA=`echo $ENTRY | cut -d/ -f5`
+	    echo $ENTRY
+#            echo sudo apt-add-repository ppa:$USER/$PPA
+	done
+    done
+    }
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+
+    listrepo
+    
+}
+
+main "$@"

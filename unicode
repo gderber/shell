@@ -1,0 +1,31 @@
+#!/bin/bash
+
+X=$((0x20))
+Y=$((0x01ffff))
+LENGTH=8
+#Y=9688
+COLOR=n
+
+ 
+while [ -n "$1" ]; do
+    case $1 in
+	-x) X=$((0x${2})); shift 2;;
+	-y) Y=$((0x${2})); shift 2;;
+	-c) COLOR=y; shift 1;;
+	*) exit 1;;
+    esac
+done
+
+if [ "$COLOR" == "y" ]; then
+	UC='\e[0;31m'
+	DC='\e[0m'
+else
+    UC=""
+    DC=""
+fi
+
+while [ "$X" -lt "$Y" ]; do
+    UCODE=$(printf "%0*x\n" $LENGTH $X)
+    printf '%b' "${UC}Unicode ${UCODE} = \U${UCODE}  ${DC}\n"
+    X=$((X + 1))
+done

@@ -14,6 +14,7 @@ function dectohex() {
 	oct) HEX=`bc <<< "obase=8; $NUM`;;
 	*) HEX=$NUM;;
     esac
+    echo -ne "$HEX"
 }
 
 function mkmaindirs () {
@@ -24,7 +25,7 @@ function mkmaindirs () {
 	
 	# Convert number to HEX
 	NUM=$((${MCOUNT}+${MAINDIROFFSET}))
-	dectohex
+	HEX=$(dectohex)
 	#echo $DIRZEROS
 	case $BASE in
 	    hexlower)
@@ -43,7 +44,7 @@ function mkmaindirs () {
 		;;
 	esac
 
-	echo $DIRNAME
+#	echo $DIRNAME
 
 #	exit 5
 	# Make Directory with Hex Name
@@ -70,7 +71,7 @@ function mkfiledirs () {
 	    
 	    # Convert number to HEX
 	    NUM=${SCOUNT}
-	    dectohex
+	    HEX=$(dectohex)
 	    case $BASE in
 		hexlower)
 		    HEX="0x${HEX}"
@@ -108,7 +109,9 @@ function mkfiledirs () {
 }
 
 function mkdummyfiles () {
-#    echo "Make Files"
+    if [ "${DEBUG}" == "y" ]; then
+	echo "Make Files"
+    fi
 
     FCOUNT=0
     # While X <= $FILESPERSUBDIR
@@ -116,7 +119,10 @@ function mkdummyfiles () {
 	
 	# Convert number to HEX
 	NUM=${FILENUM}
-	dectohex
+	HEX=$(dectohex)
+	NUM=${NUMFILES}
+	BASENUMFILES=$(dectohex)
+
 	case $BASE in
 	    hexlower)
 		HEX="0x${HEX}"
@@ -133,7 +139,7 @@ function mkdummyfiles () {
 		FILENAME=`printf "%0*d%s\n" $FILEZEROS $HEX`
 		;;
 	esac
-	echo "Generating File ${FILENAME} of ${NUMFILES}"
+	echo "Generating File ${FILENAME} of ${BASENUMFILES}"
 	# Make Dummy File with Hex Name
 	dd if=/dev/urandom of=${FILENAME} bs=${FBYTES} count=1 &> /dev/null
 	FCOUNT=$((FCOUNT+1))
@@ -157,6 +163,8 @@ function numfiles () {
     else
 	FBYTES=${FSIZE}
     fi
+
+    FBYTES=$((128*1024))
     
     # Convert Total Size to Bytes
     if [ "${TUNIT}" == "KB" ]; then
@@ -172,12 +180,20 @@ function numfiles () {
     echo $TBYTES
     
     # Calculate space required for the directory file
-    DBYTES=$((${MAINDIRNUM}*${SUBDIRNUM}*1024*4))
+    DBYTES=$((${MAINDIRNUM}*${SUBDIRNUM}*1024*128))
     
+    if [ "${DEBUG}" == "y" ]; then
+	echo "Total bytes = ${TBYTES}"
+    fi
+
     TBYTES=$(($TBYTES-$DBYTES))
-    echo $FBYTES
-    echo $DBYTES
-    echo $TBYTES
+
+
+    if [ "${DEBUG}" == "y" ]; then
+	echo "File bytes = $FBYTES"
+	echo "Directory bytes = $DBYTES"
+	echo "Total bytes = $TBYTES"
+    fi
     
     NUMFILES=$((${TBYTES}/${FBYTES}))
     FILESPERMAINDIR=$((${NUMFILES}/${MAINDIRNUM}))
@@ -186,15 +202,15 @@ function numfiles () {
 
 
     NUM=${NUMFILES}
-    dectohex
+    HEX=$(dectohex)
     FILEZEROS=`echo $HEX| wc -m`
     
     NUM=$((MAINDIRNUM+MAINDIROFFSET))
-    dectohex
+    HEX=$(dectohex)
     DIRZEROS=`echo $HEX| wc -m`
     
-    NUM=SUBDIRNUM
-    dectohex
+    NUM=${SUBDIRNUM}
+    HEX=$(dectohex)
     SUBDIRZEROS=`echo $HEX| wc -m`
     
     if [ "${DEBUG}" == "y" ]; then
@@ -206,9 +222,11 @@ function numfiles () {
     SUBDIRZEROS=$((SUBDIRZEROS-1))
     FILEZEROS=$((FILEZEROS-1))
 
-    echo $FILEZEROS
-    echo $DIRZEROS
-    echo $SUBDIRZEROS
+    if [ "${DEBUG}" == "y" ]; then
+	echo $FILEZEROS
+	echo $DIRZEROS
+	echo $SUBDIRZEROS
+    fi
 	
     #exit 4
 
@@ -230,11 +248,11 @@ function main () {
     NUMFILES=0
 
     MAINDIRNUM=300
-    SUBDIRNUM=12
+    SUBDIRNUM=24
     MAINDIROFFSET=1900
     BASEDIR=dummyfiles
 
-
+DEBUG=n
 
     while [ -n "$1" ]; do
 	case $1 in
@@ -250,6 +268,7 @@ function main () {
 	    -o) MAINDIROFFSET=$2; shift 2;;
 	    -b|--basedir) BASEDIR=$2; shift 2;;
 	    -n) NUMFILES=$2; shift 2;;
+	    -d) DEBUG=y; shift 1;;
 	    *)    help; exit;;
 	esac
     done
@@ -258,8 +277,11 @@ function main () {
     if [ ${MAINDIRNUM} -le 1 ]; then
 	SUBDIRNUM=1
     fi
-    echo $MAINDIRNUM
-    echo $SUBDIRNUM
+    
+    if [ "${DEBUG}" == "y" ]; then
+	echo $MAINDIRNUM
+	echo $SUBDIRNUM
+    fi
     
     #exit 15
     

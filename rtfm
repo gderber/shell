@@ -1,0 +1,67 @@
+#!/bin/bash
+###########################################################
+#
+# Read the Fuckin' Manual
+#
+#
+#
+###########################################################
+
+# Libraries
+# source ${HOME}/bin/libs/ask
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function rtfmhelp () {
+cat<<EOF
+Usage:
+EOF
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    --help) rtfmhelp; exit;;
+	    *) rtfm "$@"
+	esac
+    done
+
+    
+}
+
+function rtfm() { 
+    # if OSx
+    BRSREXEC=open
+    # else
+    BRSREXEC=xdg-open
+
+    [[ -z "$1" ]] && return
+    local t=$(type -t "$1")
+    case "$t" in
+	builtin) help "$1";;
+	keyword) LESS="$LESS+/^SHELL GRAMMAR" man bash;;
+	alias) alias "$1";;
+	function) type "$1";;
+	file) man "$1";; # "$1" --help, "$1" -h, info "$1", google
+	*) man -k "$1"; info -k "$1";; # google
+    esac
+    
+    help $@ || [[ -f /usr/share/info/$@.info* ]] && info $@ || $@ -h || $@ --help || man $@ || ${BRSREXEC} "http://www.google.com/search?q=$@"; 
+}
+
+main "$@"

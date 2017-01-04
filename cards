@@ -3,19 +3,96 @@
 # This is an example of choosing random elements of an array. 
 # Pick a card, any card. 
 
-Suites="Clubs Diamonds Hearts Spades" 
-Denominations="2 3 4 5 6 7 8 9 10 Jack Queen King Ace" 
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
 
-# Note variables spread over multiple lines. 
-suite=($Suites) # Read into array variable. 
-denomination=($Denominations) 
+main () {
+    # Sets PICKCOUNT to 1 by default
+    PICKCOUNT=1
+    
+    while [ -n "$1" ]; do
+	case $1 in
+	    -j) JOKERS=y; shift 1;;
+	    -n) PICKCOUNT=$2; shift 2;;
+	    --debug) DEBUG="yes"; shift 1;;
+	    [0-9]) PICKCOUNT=$1; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+    
+    DECK="2S 3S 4S 5S 6S 7S 8S 9S 0S JS QS KS AS 2H 3H 4H 5H 6H 7H 8H 9H 0H JH QH KH AH 2D 3D 4D 5D 6D 7D 8D 9D 0D JD QD KD AD 2C 3C 4C 5C 6C 7C 8C 9C 0C JC QC KC AC"
 
-num_suites=${#suite[*]} # Count how many elements. 
-num_denominations=${#denomination[*]} 
-echo -n "${denomination[$((RANDOM%num_denominations))]} of " 
-echo ${suite[$((RANDOM%num_suites))]} 
-# $bozo sh pick-cards.sh 
-# Jack of Clubs 
-# Thank you, "jipe," for pointing out this use of $RANDOM. 
+    if [ "${JOKERS}" == "y" ]; then
+	DECK="${DECK} BJ RJ WJ"
+    fi
+    
+    DECK_ARRAY=($DECK)
+    
+    pick-cards
 
-exit 0
+}
+
+
+
+function pick-cards () {
+    if [[ "$DEBUG" == "yes" ]]; then
+	echo $PICKCOUNT
+    fi
+
+    BLACK='\033[0;30m'
+    RED='\033[0;31m'
+    NO_COLOR='\033[0m'
+    DC=${NO_COLOR}
+
+    if [ ${PICKCOUNT} -gt 0 ]; then
+	NUMCARDS=${#DECK_ARRAY[*]} # Count number of cards
+	if [[ "$DEBUG" == "yes" ]]; then
+	    echo $NUMCARDS
+	fi
+	CARD=${DECK_ARRAY[$((RANDOM%NUMCARDS))]}
+	SUIT=$(echo ${CARD} | cut -c 2)
+	DENOMINATION=$(echo ${CARD} | cut -c 1)
+
+	if [ "$DENOMINATION" == "0" ]; then
+	    DENOMINATION=10
+	fi
+
+	case ${SUIT}  in
+	    S) UCODESUIT=$'\u2664'; SC=${NO_COLOR} ;;
+	    H) UCODESUIT=$'\u2665'; SC=${RED} ;;
+	    D) UCODESUIT=$'\u2666'; SC=${RED} ;;
+	    C) UCODESUIT=$'\u2667'; SC=${NO_COLOR} ;;
+	    J)
+		case $DENOMINATION in
+		    B) DENOMINATION=""; UCODESUIT=$'\U0001F0Cf'; SC=${NO_COLOR} ;;
+		    W) DENOMINATION="WJ"; UCODESUIT=$'\U0001F0DF'; SC=${NO_COLOR} ;;
+		    R) DENOMINATION="RJ"; UCODESUIT=$'\U0001F0BF'; SC=${RED} ;;
+		esac
+		;;
+	esac
+
+	
+	printf "${SC}${DENOMINATION}${UCODESUIT}   ${DC}"
+	if [[ "$DEBUG" == "yes" ]]; then
+	    echo $CARD
+	fi
+
+	TMPDECKARRAY=()
+	for value in "${DECK_ARRAY[@]}"
+	do
+	        [[ $value != ${CARD} ]] && TMPDECKARRAY+=($value)
+	done
+	DECK_ARRAY=("${TMPDECKARRAY[@]}")
+	unset TMPDECKARRAY
+	if [[ "$DEBUG" == "yes" ]]; then
+	    echo "${DECK_ARRAY[@]}"
+	fi
+	PICKCOUNT=$((PICKCOUNT - 1))
+	pick-cards
+    fi
+}
+
+main $@

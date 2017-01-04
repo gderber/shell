@@ -1,0 +1,76 @@
+#!/bin/bash
+
+source ${HOME}/bin/libs/colors
+source ${HOME}/bin/libs/commonfunctions
+source ${HOME}/bin/libs/batteryinfo_functions
+
+function systeminfo () {
+
+    # Universal Hosts    
+    local DISTROINFO=$(distroinfo)
+    local OSINFO=$(osinfo)
+    local LOGININFO=$(lastlogininfo)
+    local DATEINFO=$(date "+%Y%m%d %T%Z")
+    local UPTIMEINFO=$(uptimeinfo)
+    local LOADINFO=$(loadinfo)
+    local MEMINFO=$(meminfo)
+    local SWAPINFO=$(swapinfo)
+    local DISKINFO=$(diskinfo)
+    local CPUINFO=$(cpuinfo)
+
+    
+    # Selected Hosts
+    if [ -z ${BOXNAME} ]; then
+	local USERSINFO=$(usersinfo)
+	local UPRECORDINFO=$(uprecordinfo)
+	local BATTERYINFO=$(batteryinfo)
+	local CPUTEMPINFO=$(cputempinfo)
+	local DISKTEMPINFO=$(disktempinfo)
+	if [[ -x /usr/bin/geoiplookup ]]; then
+	    local LOCATIONINFO=$(locationinfo)
+	fi
+    fi
+
+    printf "Distribution ...: %s %s %s \n" ${DISTROINFO}
+    printf "OS..............: %s %s \n" ${OSINFO}
+    printf "Last Login......: %s %s %s %s at %s from %s \n" ${LOGININFO}
+
+    if [ -z ${BOXNAME} ]; then
+	echo -e "Logged in Users.: $USERSINFO"
+    fi
+
+    printf "Current Time....: %s %s \n" ${DATEINFO}
+    printf "Uptime..........: %s %s %s %s" ${UPTIMEINFO}
+
+    if [ -z ${BOXNAME} ]; then
+	printf "Record: %s %s %s" ${UPRECORDINFO}
+    fi
+
+    printf "\n"
+
+    if [ -z ${BOXNAME} ]; then
+	echo -e "Battery status..: ${BATTERYINFO}"
+    fi
+
+    printf "Load............: %s %1.2f %2.1f%% %s \n" ${LOADINFO} ${DC}
+    printf "Memory..........: %s %s %2.1f%% %s \n" ${MEMINFO} ${DC}
+    printf "Swap............: %s %s %2.1f%% %s \n" ${SWAPINFO} ${DC}
+    printf "Disk Usage......: %s %s %s %s \n" ${DISKINFO} ${DC}
+    printf "CPU.............: %s %s %s %s %s%s %s %s \n" ${CPUINFO}
+
+
+    if [ -z ${BOXNAME} ];then
+	printf "Temperature.....: CPU: %s %s CORE: %s MB: %s GPU: %s \n" ${CPUTEMPINFO}
+	printf "Temperature.....: SBA: %s    SDB: %s \n" ${DISKTEMPINFO}
+	if [[ -x /usr/bin/geoiplookup ]]; then
+	    printf "Location........: %s, %s %s \n" ${LOCATIONINFO}
+	fi
+    fi
+}
+
+function main () {
+    define_colors
+    systeminfo
+}
+
+main $@

@@ -1,0 +1,110 @@
+#!/bin/bash
+
+help () {
+    echo "Help"
+}
+
+download () {
+    local BADFILES=""
+
+    if [ -n "${GAME}" ]; then
+	GAME_ARRAY=($GAME)
+	GAMECOUNT=${#GAME_ARRAY[*]}
+#	echo ${GAMECOUNT}
+#	echo ${GAME}
+	X=0
+	while [ $X -lt $GAMECOUNT ]; do
+	    GAMEDL=${GAME_ARRAY[$X]}
+#	    echo $X
+#	    echo "GAME=$GAME_ARRAY[$X]"
+#	    echo "GAMEDL=$GAMEDL"
+            lgogdownloader --download --platform ${PLATFORM} --directory ${DIR} --game ${GAMEDL}
+	    X=$((X + 1))
+	done
+    else
+	lgogdownloader --download --platform ${PLATFORM} --directory ${DIR}
+    fi
+    
+#    if [ -e $(find -name .sh) ]; then
+#	BADFILES=$(grep -e "HTTP/1.0" $(ls ${DIR}/*/*sh)| awk {'print $3'})
+#	if [ -n "${BADFILES}" ]; then
+#	    rm ${BADFILES}
+#	    download
+#	fi
+#    fi
+}
+
+
+main () {
+    local DIR=gogdl
+    local PLATFORM=4
+
+    while getopts ":d:p:g:h:" opt; do
+	case "$opt" in
+	    d) 
+		if [ -n "$2" ]; then
+		    DIR="$OPTARG"
+		    shift 2
+		else
+		    printf 'ERROR: "-d" requires a non-empty option argument.\n' >&2
+		    exit 1
+		fi
+		;;
+	    p) 
+		if [ -n "$OPTARG" ]; then
+		   PLATFORM="$OPTARG"
+		else
+		    printf 'ERROR: "-p" requires a non-empty option argument.\n' >&2
+		    exit 1
+		fi
+		;;
+	    g) 
+		if [ -n "$OPTARG" ]; then
+		    if [ -n "$GAME" ]; then
+			GAME="${GAME} $OPTARG"
+		    else
+			GAME=$OPTARG
+		    fi
+#		    echo $GAME
+		else
+		    printf 'ERROR: "-g" requires a non-empty option argument.\n' >&2
+		    exit 1
+		fi
+		;;
+	    *) help; exit 1;;
+	esac
+    done
+    shift "$((OPTIND-1))" # Shift off the options and optional --.
+
+# Platform options
+# Windows = w|win|windows|1
+# Mac = m|mac|osx|2
+# Linux = l|lin|linux|4
+# All = all|7|a
+
+    case $PLATFORM in
+	1|windows|w|win) PLATFORM=1;;
+	2|mac|m|osx) PLATFORM=2;;
+	4|linux|l|lin) PLATFORM=4;;
+	7|all|a) PLATFORM=7;;
+	*) help; exit 1;;
+    esac
+
+    if [ ! -d $DIR ]; then
+	if [ -a $DIR ]; then
+	    echo "File exists but is not a directory"
+	    exit 1
+	else
+	    mkdir -p $DIR
+	fi
+    fi
+
+    download
+}
+main $@
+
+#echo $PLATFORM
+#echo $DIR
+#echo $GAME
+
+echo "done"

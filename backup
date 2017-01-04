@@ -1,0 +1,312 @@
+#!/bin/bash
+
+###########################################################
+#
+# Backup
+# backup
+#
+# Backs up the home directory by syncing it with
+# another computer.
+#
+###########################################################
+
+###########################################################
+#
+# Required Libraries
+#
+###########################################################
+# Needed to set the SSH Env
+source $HOME/bin/libs/getsshenv
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+
+###########################################################
+#
+# function sync_home
+#
+#
+#
+###########################################################
+function sync_home () {
+
+    # Sets the SSH environment variables
+    getsshenv
+
+    # Sync to the other computer
+    /usr/bin/unison default
+}
+
+###########################################################
+#
+# function backup_home
+#
+#
+#
+###########################################################
+function backup_home () {
+    if [[ -z ${EXTENTION} ]]; then
+	EXTENTION=bz2
+    fi
+    if [[ -z ${FOLDER} ]]; then
+	FOLDER=Dropbox
+    fi
+
+    HOSTNAME=$(hostname)
+    DATE=$(date +%Y%m%d)
+    if [[ $UID -eq 0 ]]; then
+	cd /home/
+	echo "User Root"
+    else
+	cd ${HOME}
+	LOGFILE=$DATE
+	/usr/bin/time -a -o "${LOGFILE}" \
+		      tar --create \
+		      --auto-compress \
+		      --verbose \
+		      --exclude='./Dropbox' \
+		      --exclude='./GDrive' \
+		      --exclude='./.dropbox' \
+		      --exclude='./.dropbox-dist' \
+		      --exclude='./.ICEauthority' \
+		      --exclude='./.wine' \
+		      --exclude='./.thumbnails' \
+		      --exclude='./.local/share/Trash' \
+		      --exclude='./.cache/mozilla' \
+		      --exclude='./.cache/chromium' \
+		      --exclude='./.cache/google-chrome' \
+		      --exclude='./.kde/share/apps/amarok/albumcovers' \
+		      --exclude='./.mythtv/thumbcache' \
+		      --exclude='./.mythtv/themecache' \
+		      --exclude='./.weather/datacache/*' \
+		      --exclude='./.cache/thumbnails' \
+		      --exclude='./.cache/MusicBrainz' \
+		      --exclude='./.cache/Clementine' \
+		      --exclude='./.cache/evolution' \
+		      --exclude='./.local/share/Steam' \
+		      --exclude='./.PlayOnLinux/' \
+		      --exclude='./.xsession-errors*' \
+		      --exclude='./.Xauthority' \
+		      --exclude='./.cache/lgogdownloader' \
+		      --exclude='./PlayOnLinux*' \
+		      --exclude='./.macromedia' \
+		      --exclude='./.gvfs' \
+		      --exclude=#*#* \
+		      --exclude=*~ \
+		      --preserve-permissions \
+		      --exclude-caches-all \
+		      -f "${FOLDER}/${HOSTNAME}-${USER}-${DATE}.tar.${EXTENTION}" \
+		      .
+    fi
+
+}
+
+
+
+###########################################################
+#
+# function restore_home
+#
+#
+#
+###########################################################
+function restore_home () {
+    echo "restore home"
+
+}
+
+function create_gdrive () {
+    while [[ "${GDRIVE_CONTINUE}" != "n" ]];
+    do
+	echo "Name Drive"
+	echo "Setup account"
+	local GDRIVE_CONTINUE=n
+    done
+}
+
+###########################################################
+#
+# function restore_home
+#
+#
+#
+###########################################################
+function update_github () {
+    # Global Definitions
+    local GITHUB_REPO_DIR=src
+    local DEBUG=0 # Set to 1 if debugging, 0 if not
+    
+    cd $HOME
+    cd $GITHUB_REPO_DIR
+
+    # Get list of repos
+    for REPO in $(ls | cut -d/ -f1); do
+	SHORT_REPO=$(echo ${REPO}| cut -d- -f2-)
+	cd $REPO
+    
+	# Verify if actual repo
+	local GStat="$(git status --porcelain -b 2>/dev/null | tr '\n' ':')"
+	if [[ "${GStat}" ]] ; then
+	    # This folder is a git repo
+	    if [[ ${DEBUG} -eq 1 ]]; then
+		echo $SHORT_REPO repository # For testing purposes
+	    fi
+	    update_repos	
+	    cd ..
+	else
+	    # This folder is not a git repo, exit
+	    cd ..
+	fi
+    done
+    exit 0
+}
+
+###########################################################
+#
+# function restore_home
+#
+#
+#
+###########################################################
+function update_repos () {
+    if [[ ${DEBUG} -eq 1 ]]; then
+	echo updating $REPO # For testing purposes
+    fi
+
+    # Check if Forked Repo
+    FORKED_STATUS=$(check_forked_status)
+    if [[ ${DEBUG} -eq 1 ]]; then
+	echo $FORKED_STATUS
+    fi
+
+    # If Forked Repo, sync with upstream
+    if [[ "${FORKED_STATUS}" == "true" ]]; then
+
+
+	# Unreal Engine and Unreal Tournament upstream repos do not use
+	# the "master" branch.  Instead they use:
+	# Unreal Engine: release
+	# Unreal Tournament: release
+	#
+	case $SHORT_REPO in
+	    UnrealEngine) BRANCH="release";;
+	    UnrealTournament) BRANCH="release";;
+	    *) BRANCH="master";;
+	esac
+	
+	git fetch upstream && 
+	git checkout "${BRANCH}" &&
+	git merge upstream/"${BRANCH}"
+    else
+    
+	# Commit changes
+	git commit -m "Auto Update"
+    fi
+
+    # Upload to github
+    git push origin master
+
+}
+
+###########################################################
+#
+# function restore_home
+#
+#
+#
+###########################################################
+function check_forked_status () {
+    UPSTREAM=$(git remote | grep upstream)
+    if [[ "${UPSTREAM}" == "upstream" ]]; then
+	FORKED=true
+    else
+	FORKED=false
+    fi
+    UPSTREAM="nope"
+    echo $FORKED
+}
+
+
+###########################################################
+#
+# backup databases
+#
+###########################################################
+function backup_databases() {
+    for db in $(mysql -e 'show databases' -s --skip-column-names); do 
+	mysqldump $db | gzip > "/backups/mysqldump-$(hostname)-$db-$(date +%Y-%m-%d-%H.%M.%S).gz"
+    done
+}
+
+###########################################################
+#
+# function sync_gdrive
+#
+###########################################################
+function sync_gdrive () {
+    # get GDrive directory(ies)
+    cd ${HOME}
+    local GDRIVE_LIST=$(find . -name .grive| cut -d. -f2)
+    for GDRIVE_DIR in ${GDRIVE_LIST}
+    do
+	local LABEL=$(echo ${GDRIVE_DIR} |cut -d/ -f3)
+	echo $LABEL
+	cd ${HOME}${GDRIVE_DIR}
+	grive
+    done
+}
+
+function do_backups () {
+    if [[ "${GDRIVE}" == "y" ]]; then
+	sync_gdrive
+    fi
+    if [[ "${GITHUB}" == "y" ]]; then
+	update_github
+    fi
+    if [[ "$TAR" == "y" ]]; then
+	backup_home
+    fi    
+}
+
+	
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    if [[ -z $@ ]]; then
+	GDRIVE=y
+	GITHUB=y
+	TAR=y
+    fi
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --google|--gdrive) GDRIVE=y; shift 1;;
+	    --git) GITHUB=y; shift 1;;
+	    --tar) TAR=y; shift 1;;
+	    --debug) DEBUG="yes"; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+    do_backups    
+}
+
+
+main "$@"

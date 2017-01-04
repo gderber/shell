@@ -1,0 +1,24 @@
+#!/bin/bash
+
+function help () {
+    cat<<EOF
+Usage: ytdl URL
+EOF
+}
+
+function ytdl () {
+    local TITLE=$(youtube-dl -e "$@")
+    local FORMAT=$(youtube-dl -F "$@" | grep best| awk '{ printf "%s",$1 }')
+    
+    youtube-dl -f ${FORMAT} -o 'Youtube/%(uploader)s/%(playlist)s/%(playlist_index)s/%(chapter_number)s - %(chapter)s/%(title)s.%(ext)s' "$@"
+}
+
+function main () {
+    if [[ -z $1 ]]; then
+	help
+    else
+	ytdl $@
+    fi
+}
+
+main $@

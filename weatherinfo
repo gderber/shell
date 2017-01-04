@@ -1,0 +1,24 @@
+#!/bin/bash
+
+source ${HOME}/bin/libs/colors
+source ${HOME}/bin/libs/weatherinfo_functions
+source ${HOME}/bin/libs/commonfunctions
+
+function weatherinfo () {
+    local WEATHERTEMPINFO=$(weathertempinfo)
+    local WEATHERSKYINFO=$(weatherskyinfo)
+    local WEATHERHUMIDITYINFO=$(weatherhumidityinfo)
+    local WEATHERWINDINFO=$(weatherwindinfo)
+    printf "............Weather.............\n"
+    printf "Tempurature..: %s %s) %s \n" ${WEATHERTEMPINFO}
+    printf "Skys.........: %s %s %s %s \n" ${WEATHERSKYINFO}
+    printf "Humidity.....: %s %s %s \n" ${WEATHERHUMIDITYINFO}
+    printf "Winds........: %s %s %s %s %s %s %s %s %s \n" ${WEATHERWINDINFO}
+}
+
+function main () {
+    define_colors
+    weatherinfo
+}
+
+main $@

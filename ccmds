@@ -1,0 +1,83 @@
+#!/bin/bash
+
+###########################################################
+#
+# Common Commands
+# ccmds
+#
+# Prints the most commonly used commands.
+# By default it prints the top 10.
+# This can be modified with a command line
+# argument.
+#
+###########################################################
+HISTFILE=~/.bash_history
+
+###########################################################
+#
+# function help
+#
+# Displays usage
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+ccmds [number]
+EOF
+}
+
+###########################################################
+#
+# function common_commands
+#
+# input: $LINES
+# output: prints the common commands
+#
+# Reads the History file, ignoring the numbered lines
+# Prints how often a command is used and the command
+# sorts the list by the frequency used
+# Trims the list to the top $LINES
+#
+#
+###########################################################
+function common_commands () {
+    grep -v ^# ${HISTFILE} | awk '{a[$1]++}END{for(i in a){print a[i] " " i}}' | sort -rn | head -n ${LINES}
+}
+
+###########################################################
+#
+# function main
+#
+# input: command line arguments
+#
+# Parces the command line arguments
+# Calls the common commands function
+#
+###########################################################
+function main () {
+
+    # Sets the default number to print to 10
+    LINES=10
+
+    # Accepts a maximum of 1 argument
+    # If more than one, print help
+    if [[ $# -gt 1 ]]; then
+	help
+	exit
+    else
+	# If there is 1 argument
+	if [[ -n $1 ]]; then
+	    # Ensure the argument is an integer
+	    case $1 in
+		*[!0-9]*) help; exit;; # Not an integer, print help
+		*) LINES=$1;; # An integer, procede
+	    esac
+	fi
+    fi
+    
+    # Print the common commands
+    common_commands
+}
+
+main $@

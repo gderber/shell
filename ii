@@ -1,0 +1,10 @@
+#!/bin/bash
+
+
+function main () {
+    systeminfo
+    netinfo
+    weatherinfo
+}
+
+main $@

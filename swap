@@ -1,0 +1,42 @@
+#!/bin/bash
+
+###########################################################
+#
+# name: Swap
+# command: swap
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage: swap <file1> <file2>
+
+Requires two arguments.
+EOF
+}
+
+function swap () { 
+# Swap 2 filenames around, if they exist (from Uzi's bashrc). 
+    local TMPFILE=tmp.$$ 
+    
+    mv "$1" $TMPFILE 
+    mv "$2" "$1" 
+    mv $TMPFILE "$2" 
+}
+
+function main () {
+    [ $# -ne 2 ] && 
+    help && 
+    return 1 
+    [ ! -e $1 ] && 
+    echo "swap: $1 does not exist" && 
+    return 1 
+
+    [ ! -e $2 ] && 
+    echo "swap: $2 does not exist" && 
+    return 1 
+
+    swap
+}
+	 
+main $@

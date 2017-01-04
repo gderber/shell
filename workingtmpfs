@@ -1,0 +1,61 @@
+#!/bin/bash
+###########################################################
+#
+# Template
+#
+# Toggle a temporary ram partition
+#
+# https://www.commandlinefu.com/commands/view/224/mount-a-temporary-ram-partition#comment
+#
+###########################################################
+
+# Libraries
+# source ${HOME}/bin/libs/ask
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    *) help; exit;;
+	esac
+    done
+}
+
+function workinftmpfs () {
+#    mount -t tmpfs tmpfs /mnt -o size=1024m
+    mt=/mnt/ram && 
+    grep "$mt" < /proc/mts > /dev/null
+    if [ $? -eq 0 ] ; then 
+	read -p"Enter to Remove Ram Partition "
+	sudo umount "$mt" && 
+	echo $mt 0
+    else 
+	sudo mt -t tmpfs tmpfs "$mt" -o size=$(( ${1:-1} * 1024 ))m && 
+	echo $mt '-' "${1:-1}"gb
+    fi
+
+}
+
+main "$@"

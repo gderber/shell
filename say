@@ -1,0 +1,57 @@
+#!/bin/bash
+###########################################################
+#
+# Say
+# say
+#
+# Uses Google Translate to pronounce specified text
+#
+###########################################################
+
+# Libraries
+# source ${HOME}/bin/libs/ask
+
+###########################################################
+#
+# function help
+#
+#
+#
+###########################################################
+function help () {
+cat<<EOF
+Usage:
+EOF
+}
+
+###########################################################
+#
+# function say
+#
+#
+#
+###########################################################
+function say () {
+    p=$(echo "$@"|sed 's/ /+/g')
+    wget -U Mozilla -q -O - "$@" translate.google.com/translate_tts?tl=en\&q=$p|mpg123 -
+}
+
+###########################################################
+#
+# function main
+#
+#
+#
+###########################################################
+function main () {
+
+    while [ -n "$1" ] 
+    do
+	case $1 in
+	    --debug) DEBUG="yes"; shift 1;;
+	    -h|--help) help; exit;;
+	esac
+    done
+}
+
+main "$@"
