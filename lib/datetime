@@ -1,0 +1,17 @@
+#!/bin/bash
+
+function datevariables () {
+    TODAY=`date -d $DATE +%Y-%m-%d`
+    YESTERDAY=`yest -1d $DATE %Y-%m-%d`
+    TOMORROW=`yest +1d $DATE %Y-%m-%d`
+    TODAY_MONTH_NUMERIC=`date -d $DATE +%m`
+    TODAY_MONTH_NAME=`date -d $DATE +%B`
+    YESTERDAY_MONTH_NUMERIC=`yest -1d $DATE %m`
+    YESTERDAY_MONTH_NAME=`yest -1d $DATE %B`
+    TOMORROW_MONTH_NUMERIC=`yest +1d $DATE %m`
+    TOMORROW_MONTH_NAME=`yest +1d $DATE %B`
+    TODAY_YEAR=`date -d $DATE +%Y`
+    YESTERDAY_YEAR=`yest -1d $DATE %Y`
+    TOMORROW_YEAR=`yest +1d $DATE %Y`
+}
+
