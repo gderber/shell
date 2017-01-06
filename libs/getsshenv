@@ -1,6 +1,0 @@
-#!/bin/bash
-
-function getsshenv () {
-    SSHVARIABLE=$(cat ${HOME}/.ssh/environment) 
-#    export $SSHVARIABLE
-}
