@@ -1,5 +1,9 @@
 NAME=shell
+<<<<<<< HEAD
 VERSION=0.0.1as
+=======
+VERSION=0.0.1
+>>>>>>> b791ff05c08656ce40df2568429f12a571f4ba2e
 
 SRCDIR=src
 DIRS=bin lib
