@@ -1,6 +1,6 @@
 NAME=shell
 VERSION=0.0.1
-/
+
 SRCDIR=src
 DIRS=bin lib
 INSTALL_DIRS=$(DIRS)
