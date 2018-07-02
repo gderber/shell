@@ -1,5 +1,5 @@
 NAME=shell
-VERSION=0.0.1b
+VERSION=0.0.1c
 
 SRCDIR=src
 DIRS=bin lib
