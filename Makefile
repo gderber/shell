@@ -5,7 +5,7 @@ SRCDIR=src
 DIRS=bin lib
 INSTALL_DIRS=$(DIRS)
 INSTALL_FILES=`cd $(SRCDIR); find $(DIRS) -type f 2>/dev/null`
-DOC_FILES=*.md *.txt
+DOC_FILES=*.md
 
 PKG_DIR=pkg
 PKG_NAME=$(NAME)-$(VERSION)
@@ -42,7 +42,7 @@ tag:
 release: $(PKG) $(SIG) tag
 
 install:
-	for dir in $(INSTALL_DIRS);do mkdir -p $(PREFIX)/$$dir; done
+	for dir in $(INSTALL_DIRS); do mkdir -p $(PREFIX)/$$dir; done
 	for file in $(INSTALL_FILES); do cp src/$$file $(PREFIX)/$$file; done
 	mkdir -p $(DOC_DIR)
 	cp -r $(DOC_FILES) $(DOC_DIR)/
