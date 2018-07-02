@@ -1,0 +1,1439 @@
+#!/bin/bash
+####################################################################################################
+#
+# Advanced Boot Setup
+#
+# Configures, builds, and installs Grub for secure boot enabled encrypted /boot setups
+#
+# References:
+#    Full System Encryption:
+#       https://help.ubuntu.com/community/ManualFullSystemEncryption/DetailedProcess
+#       https://help.ubuntu.com/community/ManualFullSystemEncryption/DetailedProcessSetUpBoot
+#       https://community.linuxmint.com/tutorial/view/2191
+#       https://forums.linuxmint.com/viewtopic.php?f=42&t=198077&sid=aad93e316a96277db5d4e56927711659&start=20
+#
+#    UEFI / Secure Boot:
+#       https://community.linuxmint.com/tutorial/view/2360
+#       https://www.rodsbooks.com/efi-bootloaders/
+#       https://wiki.ubuntu.com/EFIBootLoaders%27s_EFI_Install_Guide/Configuring_Secure_Boot
+#       https://blog.hansenpartnership.com/uefi-secure-boot
+#       https://wiki.ubuntu.com/EFIBootLoaders
+#       https://wiki.archlinux.org/index.php/Unified_Extensible_Firmware_Interface
+#       https://wiki.gentoo.org/wiki/Sakaki%27s_EFI_Install_Guide/Configuring_Secure_Boot
+#       https://insights.ubuntu.com/2017/08/11/how-to-sign-things-for-secure-boot
+#       https://www.embedded.com/design/safety-and-security/4458717/The-whys-and-hows-of-secure-boot
+#       https://www.wzdftpd.net/blog/uefi-secureboot-debian.html
+#
+#   EFI Boot Manager:
+#       https://github.com/rhboot/efibootmgr
+#       https://wiki.mageia.org/en/Efibootmgr
+#       https://www.linuxbabe.com/command-line/how-to-use-linux-efibootmgr-examples
+#       https://wiki.gentoo.org/wiki/Efibootmgr
+#
+#       man efibootmgr
+#
+#   SSL Certs:
+#       https://www.eclectica.ca/howto/ssl-cert-howto.php/
+#       https://www.madboa.com/geek/openssl
+#       https://jamielinux.com/docs/openssl-certificate-authority/index-full.html
+#       https://pki-tutorial.readthedocs.io
+#       https://www.robinhowlett.com/blog/2016/01/05/everything-you-ever-wanted-to-know-about-ssl-but-were-afraid-to-ask/
+#
+#       man ca
+#       man openssl
+#       man config
+#       man req
+#       man x509v3_config
+#       man ocsp
+#
+#   Grub:
+#       https://www.gnu.org/software/grub/
+#
+#       man grub-install
+#       man grub-mkconfig
+#
+#       info grub-install
+#
+#   Other (Unsorted):
+#       https://github.com/xmikos/cryptboot
+#       https://wiki.gentoo.org/wiki/Sakaki's_EFI_Install_Guide/Configuring_Secure_Boot
+#       https://ruderich.org/simon/notes/secure-boot-with-grub-and-signed-linux-and-initrd
+#       http://www.rodsbooks.com/efi-bootloaders/index.html
+#       https://bentley.link/secureboot/
+#       https://wiki.archlinux.org/index.php/Secure_Boot
+#       http://www.tianocore.org/news/2013/03/04/news.html
+#       http://www.uefi.org/specifications
+#
+#
+# This must be run with administrative permissions, i.e. with sudo.
+#
+# The goals of this script are to:
+# 1. Install Ubuntu with full disk encryption
+# 2. Allow Grub to boot Ubuntu and Windows in Secure Boot environment
+# 3.
+#
+# Process
+#
+# Boot 1:
+#    1. Setup Disk
+#       A. partition_disk
+#          i.    Detect if EFI Part exists
+#          ii.   Identify unallocated space
+#          iii.  Get User desired layout
+#          iv.   If EFI not created, create
+#          v.    Create System Partition
+#          vi.   Optionally Create Data Partition (Based on iii)
+#          vii.  Optional: Data Fill for Paranoid Mode
+#          viii. Encrypt System (and Data) partition(s)
+#          ix.   Unlock Partiton(s)
+#       B. create_lvm
+#          i.    Setup partion(s) for LVM
+#          ii.   Partition the LVM
+#          iii.  Format the lvm partitions
+#    2. Install Ubuntu (Mint/etc)
+#       A. run_ubiquity
+#       B. Fix Broken Pieces
+#          i.    Fix Swap
+#          ii.   mount -o subvol=@ /dev/mapper/system-root /mnt
+#          iii.  mountfilesystems
+#          iv.   Create Luks keyfiles
+#          v.    Fix crypttab
+#          vi.   Fix fstab
+#          vii   Enable Hibernation
+#          viii. Setup Default Grub
+#       C. Setup Boot
+#          i.    mount -o subvol=@ /dev/mapper/system-root /mnt
+#          ii.   mountfilesystems
+#          iii.  backup efi partitions
+#          iv.   fix efi
+#          v.    get decrytion keyfile
+#          vi.   use decryption key
+#          vii.  repair hybernation
+#          viii. grub install scrypt
+#    3. Create Configuration
+#    #. Get Required Apps
+#       A. ensure correct grub installed (grub-efi-*-secure)
+#    #. Run Backups
+#       A. grub.d
+#       B. system certs
+#       C. EFI Partition
+#    #. Create Custom SSL Keys
+#       A. Get System Certs
+#       B. Config OpenSSL
+#       C. Create keys
+#          a. MOK
+#          b. SysOvr
+#    #. Config Grub
+#       Install Grub
+#       Sign Grub
+#    #. Reboot
+#
+# Boot 2:
+#    Update MOK
+#
+# Boot 3:
+#    Test Secure boot
+#
+# Boot 4: (if Fail)
+#    Disable secure boot
+#    Put system in maint. mode
+#
+# Boot 5:
+#    install new system certs
+#
+# Boot6:
+#    Re-enable Secure boot
+#
+# Boot 7:
+#    Test secure boot
+#
+#
+# Secure boot uses the following keys:
+# PK  - Platform Keys
+# KEK - Key Exchange Key
+# db  -
+# dbx -
+# MOK - Machine Owner Keys
+#
+####################################################################################################
+
+ADV_BOOT_CFG_LOC=/etc/advanced_boot
+ADV_BOOT_CFG=${ADV_BOOT_CFG_LOC}/advboot.cnf
+DEF_KEY_LOC=${ADV_BOOT_CONFIG_LOC}/efikeys
+DEF_BACKUP_DIR=${ADV_BOOT_CFG_LOC}/backups
+SSL_CONFIG_LOC=${ADV_BOOT_CFG_LOC}/ssl
+SSL_CONFIG=${SSL_CONFIG_LOC}/openssl.cnf
+DEF_EMAIL=gdsmlinux@gmail.com
+DEF_COMMON_NAME="Geoff S Derber"
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function help () {
+    cat<<EOF
+advboot: configure grub in adv. configurations
+
+--genkeys
+--enable-sb
+--backup
+--install
+--repair
+--system-info
+
+
+EOF
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function partition_disk () {
+    echo "Partition Disk"
+    # Create System Partion
+    # Check if EFI Partition, if not, create
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function create_lvm () {
+    echo "LVM"
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function encrypt_lvm () {
+    echo "Encrypt"
+    sudo dd bs=16M if=/dev/urandom of=/dev/sdA5
+    sudo dd bs=16M if=/dev/urandom of=/dev/sdB1
+
+    sudo cryptsetup luksFormat --hash=sha512 --key-size=512 /dev/sdA5
+    sudo cryptsetup luksFormat --hash=sha512 --key-size=512 /dev/sdB1
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function unlock_lvm () {
+    echo "Unlock"
+
+    sudo cryptsetup luksOpen /dev/sdA5 system
+    sudo cryptsetup luksOpen /dev/sdB1 data
+
+}
+
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function setup_lvm () {
+    sudo pvcreate /dev/mapper/system
+    sudo vgcreate system /dev/mapper/system
+
+    if [[ "${DATA}" == "TRUE" ]]; then
+	sudo pvcreate /dev/mapper/data
+	sudo vgcreate data /dev/mapper/data
+    fi
+
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function calc_ram_size () {
+    echo -ne "16384M"
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function partition_lvm () {
+    echo "Partion LVM"
+
+    RAMSIZE=$(calc_ram_size)
+
+    sudo lvcreate --size=512M --name=boot system
+    sudo lvcreate --size=${RAMSIZE} --name=swap system
+    sudo lvcreate --extents=100%FREE --name=root system
+
+    #sudo lvcreate --extents=100%FREE --name=home data
+
+    # Create Boot
+    # Create Swap, Swapsize=ramsize
+    # Create Root
+    # Create Home
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function format_partitions () {
+    echo "Formatting"
+
+    sudo mkswap --label=swap /dev/mapper/system-swap
+    sudo mkfs.ext4 -L boot /dev/mapper/system-boot
+    sudo mkfs.ext4 -L root /dev/mapper/system-root
+    #sudo mkfs.ext4 -L home /dev/mapper/data-home     # Only if you have a separate data partition
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function run_ubiquity () {
+    sh -c 'ubiquity -b gtk_ui'
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function mountfilesystems () {
+    mount /dev/mapper/system-boot /mnt/boot
+    mount /dev/nvme0n1p1 /mnt/boot/efi
+    mount --bind /dev /mnt/dev
+    mount --bind /run /mnt/run
+    #sudo chroot /mnt/root
+    chroot /mnt /bin/bash -c "mount --types=proc proc /proc"
+    chroot /mnt /bin/bash -c "mount --types=sysfs sys /sys"
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function first_run () {
+    if [[ ! -d ${ADV_BOOT_CFG_LOC} ]]; then
+	mkdir -p ${ADV_BOOT_CFG_LOC}
+    fi
+
+    create_cfg_file
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function create_cfg_file () {
+    EXTIPADDR=$(curl ipinfo.io/ip)
+    LOCATION=$(curl ipinfo.io/${EXTIPADDR})
+    CITY=$(echo ${LOCATION} | cut -d, -f3| cut -d\" -f4)
+    STATE=$(echo ${LOCATION} | cut -d, -f3| cut -d\" -f4)
+    COUNTRY=$(echo ${LOCATION} | cut -d, -f3| cut -d\" -f4)
+    DIST_ID=$(lsb_release -i -s)
+
+    DOMAIN_NAME=$(hostname -A|cut -d. -f2)
+    DOMAIN="$(tr '[:lower:]' '[:upper:]' <<< ${DOMAIN_NAME:0:1})${DOMAIN_NAME:1}"
+
+    cat << EOF > ${ADV_BOOT_CFG}
+    ENABLE_SECURE_BOOT=TRUE
+    CRYPTO_DISK=TRUE
+    EFI_ENTRY=${DIST_ID}
+    SSL_CONFIG=${SSL_CONFIG}
+    EFI_KEY_LOC=${DEF_KEY_LOC}
+    BACKUP_LOC=${DEF_BACKUP_LOC}
+
+    # System Info
+    ORGNAME=${DOMAIN}
+    ORGUNIT=Home
+    EMAIL=${DEF_EMAIL}
+    CITY=${CITY}
+    STATE=${STATE}
+    COUNTRY=${COUNTRY}
+    COMMONNAME=\"${DEF_COMMON_NAME}\"
+    EOF
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function backupefipart () {
+    echo "backing up efi part"
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function verifygrub () {
+    echo "Checking grub..."
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function backup_grub_cfg () {
+    if [[ ! -d ${ADV_BOOT_CFG_LOC}/grub.d ]]; then
+	cp -r /etc/grub.d ${ADV_BOOT_CFG_LOC}
+    fi
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function install_app() {
+    echo "installing ..."
+    apt-get -y install secureboot-db sbsigntool efitools efivar fwts openssl mokutil
+
+}
+
+#############################################################################
+#
+# Gets System Certs
+#
+# Copies the system keys from UEFI to our working directory
+#
+#############################################################################
+function get_system_keys () {
+
+    for KEY in PK KEK db dbx
+    do
+	# Original Certs
+	if [[ -f ${EFI_KEY_LOC}/sys/old_${KEY}.esl ]]; then
+	    echo "${KEY} exists"
+	else
+	    sudo efi-readvar -v ${KEY} -o ${EFI_KEY_LOC}/sys/old_${KEY}.esl
+	fi
+    done
+    sudo chmod 500 ${EFI_KEY_LOC}/sys
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function backup_system_keys () {
+    echo "Backing up Keys"
+
+    for KEY in PK KEK db dbx
+    do
+	# Original Certs
+	if [[ -f ${BACKUP_LOC}/syskeys/old_${KEY}.esl ]]; then
+	    echo "Backup ${KEY} exists"
+	else
+	    sudo efi-readvar -v ${KEY} -o ${BACKUP_LOC}/syskeys/old_${KEY}.esl
+	fi
+    done
+    sudo chmod 500 ${BACKUP_LOC}/syskeys
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function workingsystem_keys () {
+    echo "Create Working System keys"
+}
+
+#############################################################################
+#
+# function configopenssl
+#
+# Creates the SSL configuration files, using a complex setup that allows
+# for easy future expansion.
+#
+# A. Root CA
+#    Directory Structure
+#    /root/ca/
+#         root-ca/
+#             certs/
+#         int-ca/
+#             certs/
+#         sign-ca/
+#             certs/
+#
+# B. Intermediate CA
+# C. Signing CA (Software)
+# D. Software Certs.
+#
+#############################################################################
+function configopenssl () {
+    if [[ ! -d ${SSL_CONFIG_LOC} ]]; then
+	mkdir --parents ${SSL_CONFIG_LOC}/private/
+	mkdir --parents ${SSL_CONFIG_LOC}/newcerts/
+
+	chmod 700 -R ${SSL_CONFIG_LOC}
+	
+	# Create way to track Certs
+	echo '01' > ${SSL_CONFIG_LOC}/serial
+	touch index.txt
+    fi
+
+    SSL_CNF=${SSL_CONFIG_LOC}/openssl.cnf
+    if [[ ! -f ${SSL_CNF} ]]; then
+	# man ca
+	cat << EOF > ${SSL_CNF}
+	[ ca ]
+	default_ca 		  = CA_default
+
+	[ CA_default ]
+	# Directory and File Locations
+	dir                       = ${SSL_CNF_LOC}
+	certs                     = \$dir/certs
+	crl_dir                   = $dir/crl
+	new_certs_dir		  = $dir/newcerts
+	database		        = $dir/index.txt
+	serial			  = $dir/serial
+	RANDFILE                  = $dir/private/.rand
+
+	# root key and cert"
+	private_key		  = $dir/private/cakey.pem
+	certificate		  = $dir/cacert.pem
+
+	# Certificate Revocation Lists
+	crlnumber                 = $dir/crlnumber
+	crl                       = $dir/crl/ca.crl.pem
+	crl_extentions            = crl_ext
+	default_crl_days          = 30
+	
+	default_days		  = 365
+	default_md		  = sha512
+	preserve		  = no
+	email_in_dn		  = no
+	nameopt			  = default_ca
+	certopt			  = default_ca
+	policy			  = policy_match
+	unique_subject		  = no
+
+	[ policy_match ]
+	countryName		  = match
+	stateOrProvinceName	  = match
+	organizationName	  = match
+	organizationalUnitName	  = optional
+	commonName		  = supplied
+	emailAddress		  = optional
+
+	[ req ]
+	default_bits		  = 4096			# Size of keys
+	default_keyfile		  = key.pem		# name of generated keys
+	default_md		  = sha512		# message digest algorithm
+	string_mask		  = nombstr		# permitted characters
+	distinguished_name	  = req_distinguished_name
+	req_extensions		  = v3_req
+
+	[ req_distinguished_name ]
+	# Variable name		  Prompt string
+	#----------------------	  ----------------------------------
+	organizationName	  = ${ORGNAME}
+	organizationalUnitName	  = ${ORGUNIT}
+	emailAddress		  = ${EMAIL}
+	emailAddress_max	  = 40
+	localityName		  = ${CITY}
+	stateOrProvinceName	  = ${STATE}
+	countryName		  = ${COUNTRY}
+	countryName_min		  = 2
+	countryName_max		  = 2
+	commonName		  = ${COMMONNAME}
+	commonName_max		  = 64
+
+	[ v3 ]
+	subjectKeyIdentifier      = hash
+	authorityKeyIdentifier    = keyid:always,issuer
+	basicConstraints          = critical,CA:FALSE
+	nsComment                 = "OpenSSL Generated Certificate"
+	
+
+	[ v3_ca ]
+	basicConstraints	  = CA:TRUE
+	subjectKeyIdentifier	  = hash
+	authorityKeyIdentifier	  = keyid:always,issuer:always
+	
+
+	[ v3_req ]
+	basicConstraints	  = CA:FALSE
+	subjectKeyIdentifier	  = hash
+	
+
+	# Create our Platform Key (PK) Configuration
+	[ v3_pk ]
+	# Default Key Size is 2048 because not all UEFI configurations support 4096.
+
+	# Create our Platform Key (PK) Configuration for Module Signing
+	# Platform Key (PK) Configuration for Module Signing
+	[ v3_pk_mod ]
+	extendedKeyUsage          = codeSigning,1.3.6.1.4.1.311.10.3.6,1.3.6.1.4.1.2312.16.1.2     #Only used for Module Signing
+
+	# Create our Key Exchange Key (KEK) Configuration
+
+	# Create our Key Exchange Key (KEK) Configuration for Module Signing
+	# ... (KEK) Configuration for Module Signing
+	[ v3_kek_mod ]
+	extendedKeyUsage        = codeSigning,1.3.6.1.4.1.311.10.3.6,1.3.6.1.4.1.2312.16.1.2     #Only used for Module Signing
+	# Create our ... (db) Configuration
+	
+	# Create our ... (db) Configuration for Module Signing
+	# Platform Key (PK) Configuration for Module Signing
+	[ v3_db_mod ]
+	extendedKeyUsage        = codeSigning,1.3.6.1.4.1.311.10.3.6,1.3.6.1.4.1.2312.16.1.2     #Only used for Module Signing
+
+	# Create our ... (dbx) Configuration
+
+	# Create our ... (dbx) Configuration for Module Signing
+	# ... (dbx) Configuration for Module Signing
+	[ v3_dbx_mod ]
+	extendedKeyUsage        = codeSigning,1.3.6.1.4.1.311.10.3.6,1.3.6.1.4.1.2312.16.1.2     #Only used for Module Signing
+
+	# Create our Machine Owner Keys (MOK) Configuration
+	[ v3_mok ]
+
+       	# Create our Machine Owner Key (MOK) Configuration for Module Signing
+	# Machine Owner Key (PK) Configuration for Module Signing
+	[ v3_pk_mod ]
+	extendedKeyUsage        = codeSigning,1.3.6.1.4.1.311.10.3.6,1.3.6.1.4.1.2312.16.1.2     #Only used for Module Signing
+EOF
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function configure_grub () {
+    # First backup grub config
+
+    # Modify...
+    sudo sed -i.bak 's/GRUB_HIDDEN_TIMEOUT=0/#GRUB_HIDDEN_TIMEOUT=0/' /mnt/etc/default/grub
+    sudo sed -i '10a GRUB_ENABLE_CRYPTODISK=y' /mnt/etc/default/grub
+    sudo sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cryptdevice=\/dev\/sda5:sda5_crypt"/' /mnt/etc/default/grub
+}
+
+#############################################################################
+#
+# function id_efi
+#
+#############################################################################
+function id_efi () {
+    if [[ -d /sys/firmware/efi ]]; then
+	EFIBOOT=TRUE
+    else
+	EFIBOOT=FALSE
+    fi
+    echo -ne "${EFIBOOT}"
+}
+
+#############################################################################
+#
+# function id_secure_boot
+#
+# ...
+#
+# input:
+# return: SECURE_BOOT
+#
+#############################################################################
+function id_secure_boot () {
+    EFIBOOT=$(id_efi)
+    if [[ "${EFIBOOT}" == "TRUE" ]]; then
+	if [[ -x $(which mokutil) ]]; then
+	    MOKUTIL=$(which mokutil)
+	    SBSTATE=$(mokutil --sb-state|cut -d\  -f2)
+	    if [[ "${SBSTATE}" == "enabled" ]]; then
+		SECURE_BOOT="ENABLED"
+	    else
+		SECURE_BOOT="CAPABLE"
+	    fi
+	else
+	    echo "mokutil not installed, install?"
+	    # If yes install(); SECURE_BOOT=$(id_secure_boot); else;
+	    SECURE_BOOT="ERROR"
+	fi
+    else
+	SECURE_BOOT="UNSUPPORTED"
+	echo "We are using BIOS, not UEFI..."
+    fi
+    echo -ne "${SECURE_BOOT}"
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function clear_old_certs () {
+    echo "clearold"
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function certtoefisiglist () {
+    GUID="$(uuidgen --random)" &&
+	# Save a file with GUID in case we ever need it again
+	echo "${GUID}" > GUID &&
+
+	# Print GUID
+	echo "GUID = ${GUID}" &&
+
+	echo "cert-to-efi1" &&
+	cert-to-efi-sig-list -g ${GUID} ${EFI_KEY_LOC}/PK.crt ${EFI_KEY_LOC}/new/PK.esl &&
+	echo "cert-to-efi2" &&
+	cert-to-efi-sig-list -g ${GUID} ${EFI_KEY_LOC}/KEK.crt ${EFI_KEY_LOC}/new/KEK.esl &&
+	echo "cert-to-efi3" &&
+	cert-to-efi-sig-list -g ${GUID} ${EFI_KEY_LOC}/db.crt ${EFI_KEY_LOC}/new/db.esl
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function signefisiglist () {
+    echo "-n" &&
+	echo -n > ${EFI_KEY_LOC}/new/PK_null.esl &&
+	echo "sign-efi-sig-list1" &&
+	sign-efi-sig-list -k ${EFI_KEY_LOC}/PK.key -c ${EFI_KEY_LOC}/PK.crt PK ${EFI_KEY_LOC}/new/PK.esl ${EFI_KEY_LOC}/new/PK.auth &&
+	echo "sign-efi-sig-list2" &&
+	sign-efi-sig-list -k ${EFI_KEY_LOC}/PK.key -c ${EFI_KEY_LOC}/PK.crt PK ${EFI_KEY_LOC}/new/PK_null.esl ${EFI_KEY_LOC}/new/PK_null.auth &&
+	echo "sync" &&
+
+    cat ${EFI_KEY_LOC}/sys/old_KEK.esl >> ${EFI_KEY_LOC}/new/KEK.esl &&
+	cat ${EFI_KEY_LOC}/sys/old_db.esl >> ${EFI_KEY_LOC}/new/db.esl
+
+}
+
+#############################################################################
+#
+# uploadtosystem
+#
+#############################################################################
+function uploadtosystem () {
+    if [[ "${SYSKEYS}" == "TRUE" ]]; then
+	echo "efi-update1 ${EFI_KEY_LOC}/new/KEK.esl" &&
+	    efi-updatevar -e -f ${EFI_KEY_LOC}/new/KEK.esl KEK &&
+	    echo "efi-update2 ${EFI_KEY_LOC}/new/db.esl" &&
+	    efi-updatevar -e -f ${EFI_KEY_LOC}/new/db.esl db &&
+	    #echo "efi-update3 ${EFI_KEY_LOC}/sys/old_dbx.esl" &&
+	    # Fails for yoga 920
+	    #efi-updatevar -e -f ${EFI_KEY_LOC}/sys/old_dbx.esl dbx #&&
+	    echo "efi-update4 ${EFI_KEY_LOC}/new/PK.auth" &&
+	    efi-updatevar -f ${EFI_KEY_LOC}/new/PK.auth PK &&
+	    echo "Successfully uploaded keys"
+    else
+	mokutil --import ${EFI_KEY_LOC}/MOK.cer
+    fi
+	
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function generate_ssl_keys () {
+    if [[ ! -d ${EFI_KEY_LOC} ]]; then
+	mkdir --parents "${EFI_KEY_LOC}"
+    fi
+    # Ensure we have a properly configured OpenSSL Config file
+    # configopenssl
+
+    #Secure boot uses 4 keys
+    # PK
+    # KEK
+    # db
+    # dbx
+    # MOK
+    # Do not create a dbx key because ...
+
+    SSL_CNF=/etc/advanced_boot/ssl/openssl.cnf
+
+    for KEY in PK KEK db MOK
+    do
+	if [[ ! -f ${EFI_KEY_LOC}/${KEY}.key ]]; then
+	    echo "Creating ${KEY} key..." &&
+		openssl req \
+			-config ${SSL_CNF} \
+			-new \
+			-x509 \
+			-newkey rsa:2048 \
+			-keyout ${EFI_KEY_LOC}/${KEY}.key \
+			-out ${EFI_KEY_LOC}/${KEY}.crt \
+			-days 3650 \
+			-nodes \
+			-sha256 &&
+	    echo "Converting ${KEY} to DER format" &&
+	    openssl x509 \
+		    -in ${EFI_KEY_LOC}/${KEY}.crt \
+		    -out ${EFI_KEY_LOC}/${KEY}.cer \
+		    -outform DER
+
+	fi
+    done
+}
+
+#############################################################################
+#
+# gen_grubd_files
+#
+# ...
+#
+#
+#############################################################################
+function gen_grubd_31_system () {
+    cat << 31SYS > /etc/grub.d/31_system
+#!/bin/sh
+set -e
+
+cat << EOF
+menuentry "System shutdown" --unrestricted --class shutdown {
+	echo "System shutting down..."
+	halt
+}
+
+menuentry "System restart" --unrestricted --class reboot {
+	echo "System rebooting..."
+	reboot
+}
+EOF
+31SYS
+}
+
+#############################################################################
+#
+# gen_grubd_files
+#
+# ...
+#
+#
+#############################################################################
+function gen_grubd_files () {
+    gen_grubd_31_system
+}
+
+#############################################################################
+#
+# function get_modules
+#
+# Get the required modules to be built into grub.
+#
+# input:
+# return:
+#
+#############################################################################
+function get_modules () {
+    #Base Modules
+    #MODULES_BOOT=
+    #MODULES_BUS=
+
+    # Command Modules
+    #MODULES_CMD_ARC="lsdev"
+    #MODULES_CMD_EFI="efifwsetup fixvideo loadbios lsefi lsefimmap"
+    #MODULES_CMD_EFI="${MODULES_CMD_EFI} lsefisystab lssal"
+    #MODULES_CMD_i386="cmosdump cmostest cpuid"
+    #MODULES_CMD_ieee1275="suspend"
+    #MODULES_CMD_XEN="lsxen"
+    #MODULES_CMD="${MODULES_CMD_ARC} ${MODULES_CMD_EFI} ${MODULES_CMD_i386}"
+    #MODULES_CMD="${MODULES_CMD} ${MODULES_CMD_ieee1275} ${MODULES_CMD_XEN}"
+    #
+    #MODULES_CMD="${MODULES_CMD} acpi acpihalt blocklist boot boottime cacheinfo"
+    #MODULES_CMD="${MODULES_CMD} cat cmp configfile date echo eval extcmd file"
+    #MODULES_CMD="${MODULES_CMD} gptsync halt hashsum hdparm help hexdump"
+    #MODULES_CMD="${MODULES_CMD} iorw keylayouts keystatus legacycfg loadenv"
+    #MODULES_CMD="${MODULES_CMD} lsacpi ls lsmmap lspci macbless memrw"
+    #MODULES_CMD="${MODULES_CMD} minicmd nativedisk parttool password"
+    #MODULES_CMD="${MODULES_CMD} password_pdkdf2 pcidump probe read reboot"
+    #MODULES_CMD="${MODULES_CMD} regexp search search_file search_label"
+    #MODULES_CMD="${MODULES_CMD} search_uuid search_wrap setpci sleep"
+    #MODULES_CMD="${MODULES_CMD} syslinuxcfg terminal test testload testspeed"
+    #MODULES_CMD="${MODULES_CMD} time tr true usbtest verify videoinfo videotest"
+    #MODULES_CMD="${MODULES_CMD} wildcard xnu_uuid"
+
+    # Disk Modules
+    #MODULES_DISK_ARC="arcdisk"
+    #MODULES_DISK_EFI="efidisk"
+    #MODULES_DISK_i386="biosdisk"
+    #MODULES_DISK_ieee1275="nand ofdisk"
+    #MODULES_DISK_UBOOT="ubootdisk"
+    #MODULES_DISK_XEN="xendisk"
+    #MODULES_DISK="${MODULES_DISK_ARC} ${MODULES_DISK_EFI} ${MODULES_DISK_i386}"
+    #MODULES_DISK="${MODULES_DISK} ${MODULES_DISK_ieee1275} ${MODULES_DISK_UBOOT}"
+    #MODULES_DISK="${MODULES_DISK} ${MODULES_DISK_XEN}"
+    #MODULES_DISK="${MODULES_DISK} afsspliter ahci ata cryptodisk diskfilter dmraid_nvidia"
+    #MODULES_DISK="${MODULES_DISK} geli host ldm loopback luks lvm mdraid1x_linux"
+    #MODULES_DISK="${MODULES_DISK} mdraid_linux_be mdraid_linux memdisk pata"
+    #MODULES_DISK="${MODULES_DISK} raid5_recover raid6_recover scsi usbms"
+
+    # Font Modules
+    #MODULES_FONT="font fontcmd"
+
+    # Filesystem Modules
+    #MODULES_FS_ZFS="zfs zfscrypt zfsfletcher zfsinfo zfs_lz4 zfs_lzjb zfs_sha256"
+    #MODULES_FS="${MODULES_FS_ZFS}"
+    #MODULES_FS="${MODULES_FS} affs afs archelp bfs btrfs cbfs cpio_be cpio"
+    #MODULES_FS="${MODULES_FS} cpio_common exfat ext2 f2fs fat fshelp hfs hfsplus"
+    #MODULES_FS="${MODULES_FS} hfspluscomp iso9660 jfs minix2_be minix2 minix3_be"
+    #MODULES_FS="${MODULES_FS} minix3 minix_be minix newc nilfs ntfs ntfscomp odc"
+    #MODULES_FS="${MODULES_FS} proc reiserfs romfs sfs squash4 tar udf ufs2 ufs_be"
+    #MODULES_FS="${MODULES_FS} ufs xfs"
+
+    # GDB Modules
+    #MODULES_GDB_i386="idt machdep signal"
+    #MODULES_GDB="${MODULES_GDB_i386}"
+    #MODULES_GDB="${MODULES_GDB} cstub gdb"
+
+    # Gettext Modules
+    #MODULES_GETTEXT="gettext"
+
+    # GFX Menu Modules
+    #MODULES_GFXMENU="font gfxmenu gui_box gui_canvas gui_circular_progress"
+    #MODULES_GFXMENU="${MODULES_GFXMENU} gui_image gui_label gui_list"
+    #MODULES_GFXMENU="${MODULES_GFXMENU} gui_progress_bar gui_string_util"
+    #MODULES_GFXMENU="${MODULES_GFXMENU} gui_util icon_manager theme_loader"
+    #MODULES_GFXMENU="${MODULES_GFXMENU} view widget-box"
+
+    # GNU Lib Modules
+    #MODULES_GNULIB=
+    #MODULES_HOOK=
+    #MODULES_IO=
+    #MODULES_KERN=
+    #MODULES_LIB=
+    #MODULES_LOADER=
+    #MODULES_MMAP=
+    #MODULES_NET=
+    #MODULES_NORMAL=
+    #MODULES_OSDEP=
+    #MODULES_PARTMAP=
+    #MODULES_PARTTOOL=
+    #MODULES_SCRIPT=
+    #MODULES_TERM=
+    #MODULES_TESTS=
+    #MODULES_VIDEO=
+    MODULES_BASE="chain datehook datetime disk" &&
+	MODULES_BASE="${MODULES_BASE} elf file help configfile" &&
+	MODULES_BASE="${MODULES_BASE} lsefimmap lspci" &&
+	MODULES_BASE="${MODULES_BASE} lsefisystab regexp search true verify" &&
+	MODULES_COMP="gzio tar xzio" &&
+
+	# Device Modules
+	MODULES_DEV="at_keyboard usb_keyboard usb" &&
+	MODULES_DEV="${MODULES_DEV} usbserial_common usbserial_ftdi usbserial_pl2303" &&
+	MODULES_DEV="${MODULES_DEV} usbserial_usbdebug usbtest"
+
+	if [ ${CRYPTO_DISK} == "TRUE" ]; then
+	    MODULES_ENCRYPTION="gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool"
+	    MODULES_ENCFS="crypto"
+	else
+	    MODULES_ENCRYPTION=""
+	    MODULES_ENCFS=""
+	fi
+	MODULES_EFI="efi_gop efinet efi_uga"
+	MODULES_GFX="all_video bitmap bitmap_scale gfxterm_background gfxterm_menu gfxterm"
+	MODULES_GFX="${MODULES_GFX} video_bochs video_cirrus video_colors video_fb videoinfo video videotest_checksum videotest jpeg png"
+	MODULES_NET="net http"
+	MODULES_OS="bsd part_bsd linux16 linuxefi linux"
+	MODULES_USERS="pbkdf2 pbkdf2_test"
+	MODULES_OTHER="acpi adler32 afs ahci aout appleldr archelp ata backtrace bfs bitmap blocklist bswap_test bufio cbls cbmemc cbtable cbtime cmdline_cat_test cmp cmp_test cpio_be cpio cpuid crc64 cs5536 ctz_test diskfilter div div_test dm_nv exfctest fshelp functional_test  geli gptsync halt hashsum hdparm hexdump hfs hfspluscomp hfsplus iorw iso9660 ldm legacycfg legacy_password_test loadenv lsacpi lsefimmap lvm lzopio macbless macho mdraid09_be mdraid09 mdraid1x memdisk memrw minicmd mmap morse mpi msdospart mul_test multiboot2 multiboot nativedisk newc nilfs2 normal odc offsetio ohci part_acorn part_amiga part_apple part_dfly part_dvh part_gpt part_msdos part_plan part_sun part_sunpc parttool pata pcidump play priority_queue probe procfs progress raid5rec raid6rec random read reboot  reiserfs relocator romfs scsi search_fs_file search_fs_uuid search_label serial setjmp setjmp_test setpci sfs shift_test signature_test sleep sleep_test spkmodem squash4 syslinuxcfg terminal terminfo test_blockarg testload test testspeed tftp tga time trig tr udf ufs1_be ufs1 ufs2 uhci xnu xnu_uuid xnu_uuid_test"
+	
+
+	MODULES="all_video boot btrfs cat chain configfile cpuid crypto at_keyboard cryptodisk disk diskfilter echo efifwsetup efinet ext2 fat font gettext gcry_arcfour gcry_blowfish gcry_camellia gcry_cast5 gcry_crc gcry_des gcry_dsa gcry_idea gcry_md4 gcry_md5 gcry_rfc2268 gcry_rijndael gcry_rmd160 gcry_rsa gcry_seed gcry_serpent gcry_sha1 gcry_sha256 gcry_sha512 gcry_tiger gcry_twofish gcry_whirlpool gfxmenu gfxterm gfxterm_background gzio help halt hfsplus iso9660 jpeg keystatus keylayouts loadenv loopback linux linuxefi ls lsefi lsefimmap lsefisystab lssal luks lvm mdraid09 mdraid1x memdisk minicmd normal procfs part_apple part_msdos part_gpt password_pbkdf2 png raid5rec raid6rec reboot search search_fs_uuid search_fs_file search_label sleep squash4 tar test true verify video zfs zfscrypt zfsinfo usb usbms usbserial_common usbserial_ftdi usbserial_pl2303 usbserial_usbdebug usbtest"
+
+	
+	    #MODULES="${MODULES_BASE} ${MODULES_COMP} ${MODULES_DEV} ${MODULES_ENCFS} ${MODULES_EFI} \
+		#${MODULES_ENCRYPTION} ${MODULES_FS} ${MODULES_GFX} ${MODULES_OS} ${MODULES_OTHER}"
+	echo -ne "${MODULES}"
+}
+
+#############################################################################
+#
+# getgrubinstopts
+#
+# ...
+#
+# input:
+# repair:
+#
+#############################################################################
+function getgrubinstopts () {
+    # Check system boot type: UEFI Secure Boot Enabled, UEFI Secure Boot Disabled, BIOS MBR
+    SECURE_BOOT=$(id_secure_boot)
+    echo $SECURE_BOOT
+    echo $ENABLE_SECURE_BOOT
+
+    if [[ -z ${1} ]]; then
+	EFI_ENTRY=${DIST_ID}
+    else
+	EFI_ENTRY=${DIST_ID}-Backup
+    fi
+
+    [[ -d /boot/efi/EFI/${EFI_ENTRY} ]] || mkdir -p /boot/efi/EFI/${EFI_ENTRY}
+
+    # If Secure_boot == true OR Enable_secure_boot option == true then
+    if [[ "${SECURE_BOOT}" == "ENABLED" ]] || [[ "${ENABLE_SECURE_BOOT}" == "TRUE" ]]; then
+	MODULES="$(get_modules)"
+	
+	OPTS="--uefi-secure-boot --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=${EFI_ENTRY} --boot-directory=/boot --modules=\"${MODULES}\" --recheck /dev/nvme0n1p1"
+    elif [[ "${SECURE_BOOT}" == "CAPABLE" ]] && [[ "${ENABLE_SECURE_BOOT}" != "TRUE" ]]; then
+        # Elif UEFI == True && Enable Secure_boot == false
+	OPTS="--target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=${EFI_ENTRY} --boot-directory=/boot/efi/EFI/${EFI_ENTRY} --recheck /dev/nvme0n1p1"
+    else
+	# We are in BIOS using MBR
+	OPTS="--boot-directory=/boot/grub"
+    fi
+    echo -ne "${OPTS}"
+}
+
+#############################################################################
+#
+# Function rungrubinstall
+#
+# ...
+#
+# @input: $1
+# @return: ...
+#
+#############################################################################
+function rungrubinstall () {
+    OPTS="$(getgrubinstopts $1)"
+
+    echo "${OPTS}"
+
+    #update-grub
+    #---------------------------------------------------------------------------------------------------
+    #       Install and repair Grub
+
+    GRUBINT=$(which grub-install)
+    ${GRUBINT} "${OPTS}" &&
+	echo 'Successfully refreshed Grub.' || echo "Grub Failed"; exit 1
+
+    #
+    #cp -b -f /boot/efi/EFI/${EFI_ENTRY}/grubx64.efi /boot/efi/EFI/BOOT/bootx64.efi
+
+    # if
+    #(( ${?} )) &&
+#	echo 'Failed to reinstall Grub.' >&2 &&
+#	exit 3
+#
+ #   mkdir -p /boot/efi/EFI/${EFI_ENTRY}/grub/
+    	#---------------------------------------------------------------------------------------------------
+    	#       Copy boot modules to EFI  (Why? grub-install seems to do this)
+
+        #mkdir --parents /boot/efi/EFI/${EFI_ENTRY}
+    	#(( ${?} )) && echo 'Failed to create boot modules folder in EFI.' >&2 && exit 3
+
+    	#cp --recursive /boot/grub/x86_64-efi /boot/efi/EFI/${EFI_ENTRY}
+    	#(( ${?} )) && echo 'Failed to copy boot modules to EFI.' >&2 && exit 3
+
+	
+    	# Enable Startup.nsh
+    	#if [ ! -f /boot/efi/startup.nsh ]; then
+	    #echo "\EFI\${EFI_ENTRY}\grubx64.efi"
+    	#fi
+
+
+    #---------------------------------------------------------------------------------------------------
+    #       Allow Ubuntu to boot
+
+#    cd /boot/efi/EFI
+#    (( ${?} )) &&
+#	echo 'Failed to enter /boot/efi/EFI.' >&2 && exit 3
+#
+#    [[ -d Boot ]] &&
+#	rm --force --recursive Boot-backup &&
+#	mv Boot Boot-backup
+                                                        # Ignore error code 1.
+#    (( ${?} > 1 )) && echo 'Failed to enter /boot/efi/EFI.' >&2 && exit 3
+
+    #---------------------------------------------------------------------------------------------------
+    #       Prepare initramfs
+
+#    update-initramfs -ck all
+#    (( ${?} )) && echo 'Failed to prepare initrafms.' >&2 && exit 3
+
+    #---------------------------------------------------------------------------------------------------
+    #       Successful end.
+
+}
+
+#############################################################################
+#
+# rungrubmkimage
+#
+# ...
+#
+#
+#############################################################################
+function get_platform () {
+    PLATFORM=x86_64-efi
+    echo -ne ${PLATFORM}
+}
+#############################################################################
+#
+# rungrubmkimage
+#
+# ...
+#
+#
+#############################################################################
+function rungrubmkimage () {
+    PLATFORM=$(get_platform) &&
+	echo "Making Grub Image" &&
+	# Get List of Grub Modules
+	MODS="$(get_modules)" &&
+
+	#Make memdisk
+	cd /etc/advanced_boot/ &&
+	# Clear old memdisk folder
+	rm -rf boot/ &&
+	# Folder for memdisk
+	mkdir -p boot/grub/ &&
+	cp -r /boot/grub/ boot/ &&
+	# if keymap ...
+	cp /etc/advanced_boot/keymaps/dvorak.gkb boot/grub/ &&
+	# Until I get a solid grub.cfg generation working ...
+	cp -f /etc/advanced_boot/grub.cfg boot/grub/grub.cfg &&
+	cd boot/ &&
+
+	# Create tar memdisk file
+	tar --create \
+	    --verbose \
+	    --file memdisk.tar \
+	    grub/ &&
+
+	# create grub image
+	grub-mkimage \
+	    --verbose \
+	    --directory "/usr/lib/grub/${PLATFORM}" \
+	    --output "/boot/efi/EFI/${EFI_ENTRY}/grubx64.efi" \
+	    --format "${PLATFORM}" \
+	    --compression 'auto'  \
+	    --memdisk memdisk.tar \
+	    --prefix '(memdisk)/grub' \
+	    ${MODS} &&
+	echo "Image Complete"
+
+}
+
+#############################################################################
+#
+# rungrubmkstandalone
+#
+# ...
+#
+#
+#############################################################################
+function rungrubmkstandalone () {
+    # Fix Me (Id proper platform)
+    PLATFORM=$(get_platform) &&
+	# Get List of Grub Modules
+	MODS="$(get_modules)" &&
+    	# Make Grub
+	#--install-modules="" \
+	    #--pubkey \
+	    #--locale-directories \
+
+	grub-mkstandalone \
+	    --directory /usr/lib/grub/${PLATFORM} \
+	    --fonts=unicode \
+	    --locales="en@quot" \
+	    --modules="${MODS}" \
+	    --themes="$(ls /boot/grub/themes/)" \
+	    --verbose \
+	    --compress xz \
+	    --output "/boot/efi/EFI/${EFI_ENTRY}/grubx64.efi" \
+	    --format ${PLATFORM} \
+	    /boot/grub/grub.cfg >log 2>&1
+}
+
+#############################################################################
+#
+#
+#
+#
+#############################################################################
+function grub_install () {
+    #rungrubinstall
+    METHOD=mkimage
+    case ${METHOD} in
+	mkimage)
+	    rungrubmkimage
+	    ;;
+	mkstandalone)
+	    rungrubmkstandalone
+	    ;;
+	install)
+	    rungrubinstall
+	    ;;
+    esac &&
+    echo "Grub Successfully Created"
+
+    # Add check for EFI_ENTRY if not ...
+    #efibootmgr -c -l "\EFI\${EFI_ENTRY}\grubx64.efi" -L "${EFI_ENTRY}" -d /dev/nvme0n1 -p 1
+}
+
+#############################################################################
+#
+#
+#
+#
+#############################################################################
+function grub_backup () {
+    rungrubinstall backup
+}
+
+#############################################################################
+#
+#
+#
+#
+#############################################################################
+function grub_ultimate () {
+    echo "install grub ultimate"
+}
+
+#############################################################################
+#
+# grub_config
+#
+# ...
+#
+# input:
+# return:
+#
+#############################################################################
+function grub_config () {
+    echo "Create Grub Config File ..." &&
+	grub-mkconfig \
+	    --output=/boot/grub/grub.cfg ||
+	    echo 'Failed to reconfigure Grub.' >&2
+
+}
+
+#############################################################################
+#
+# grub_sign
+#
+# ...
+#
+# input:
+# return:
+#
+#############################################################################
+function grub_sign () {
+    echo "Sign Grub files"
+
+    if [[ "${SYSKEYS}" == "TRUE" ]]; then
+	KEY=db
+    else
+	KEY=MOK
+    fi
+
+    sbsign --key ${EFI_KEY_LOC}/${KEY}.key \
+	   --cert ${EFI_KEY_LOC}/${KEY}.crt \
+	   --output /boot/efi/EFI/${EFI_ENTRY}/grubx64.efi \
+	   /boot/efi/EFI/${EFI_ENTRY}/grubx64.efi &&
+	sbverify --cert ${EFI_KEY_LOC}/${KEY}.crt /boot/efi/EFI/${EFI_ENTRY}/grubx64.efi &&
+	echo "Grub files successfully signed"
+
+    # This was listed on ..., not sure why needed
+    #sbsign --key ${EFI_KEY_LOC}/db.key --cert ${EFI_KEY_LOC}/db.crt --output /boot/efi/EFI/BOOT/bootx64.efi /boot/efi/EFI/BOOT/bootx64.efi
+}
+
+#############################################################################
+#
+#
+#
+#
+#############################################################################
+function update_init () {
+    echo "Update initramfs"
+    locale-gen --purge --no-archive
+    update-initramfs -ck all
+    #sudo chroot /mnt locale-gen --purge --no-archive
+    #sudo chroot /mnt update-initramfs -u
+}
+
+#############################################################################
+#
+#
+#
+#
+#############################################################################
+function grub_repair () {
+    #configopenssl &&
+    #grub_config &&
+    grub_install &&
+    grub_sign &&
+    update_init &&
+    echo "Complete"
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function install_linux () {
+    partition_disk &&
+    create_lvm &&
+    encrypt_lvm &&
+    unlock_lvm &&
+    partition_lvm &&
+
+    run_ubiquity &&
+
+    # Id fs type.  If FS=btrfs "-o subvol=@" is required.
+    mount -o subvol=@ /dev/mapper/system-root /mnt &&
+    mountfilesystems
+
+    # id_efi
+    # backup efi partitions
+    # insure correct grub installed
+    # install required apps
+    # backup grub.d
+    # backup system certs
+    # 2nd copy of system keys for working copy
+    # Config OpenSSL
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function keys () {
+    generate_ssl_keys &&
+	if [[ "${SYSKEYS}" == "TRUE" ]]; then
+	    certtoefisiglist &&
+		signefisiglist
+	fi &&
+	echo "Keys successfully created"
+
+}
+
+#############################################################################
+#
+#
+#
+#############################################################################
+function main () {
+    ENABLE_SECURE_BOOT=FALSE
+    while [ -n "$1" ]
+    do
+	case $1 in
+	    --enable-sb)
+		ENABLE_SECURE_BOOT=TRUE
+		shift 1
+		;;
+	    --efi-entry)
+		DIST_ID="${2}"
+		shift 2
+		;;
+	    --backup)
+		FUNC=backup
+		FIRST_RUN=TRUE
+		shift 1
+		;;
+	    --testing)
+		DIST_ID="GRUBFUCK"
+		shift 1
+		;;
+	    --install)
+		FIRST_RUN=TRUE
+		FUNC=install
+		shift 1
+		;;
+	    --mount)
+		FUNC=mount
+		shift 1
+		;;
+	    --repair)
+		FUNC=repairgrub
+		shift 1
+		;;
+	    --system-info)
+		FUNC=sysinfo
+		shift 1
+		;;
+	    --gen-keys)
+		FUNC=genkeys
+		shift 1
+		;;
+	    --upload-keys)
+		FUNC=uploadkeys
+		shift 1
+		;;
+	    --sys-keys)
+		SYSKEYS=TRUE
+		shift 1
+		;;
+	    *)
+		help
+                exit
+		;;
+	esac
+    done
+
+    if [[ "${FIRST_RUN}" == "TRUE" ]]; then
+	if [[ ! -f ${ADV_BOOT_CFG} ]]; then
+	    first_run
+	fi
+    fi
+
+    # Ensure we have DIST_ID
+    DIST_ID=${DIST_ID:-$(lsb_release -i -s)}
+
+    case ${FUNC} in
+	backup)
+	    source ${ADV_BOOT_CFG}
+	    grub_backup
+	    ;;
+	install)
+	    echo "install"
+	    ;;
+	mount)
+	    mountfilesystems
+	    ;;
+	repairgrub)
+	    source ${ADV_BOOT_CFG}
+	    EFI_ENTRY=${DIST_ID}
+	    grub_repair
+	    ;;
+	sysinfo)
+	    echo "EFI System = $(id_efi)"
+	    echo "Secure Boot = $(id_secure_boot)"
+	    ;;
+	uploadkeys)
+	    source ${ADV_BOOT_CFG}
+	    uploadtosystem
+	    ;;
+	genkeys)
+	    source ${ADV_BOOT_CFG}
+	    keys
+	    ;;
+    esac
+}
+
+main "$@"
