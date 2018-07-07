@@ -1,10 +1,10 @@
 NAME=shell
 VERSION=0.0.1c
+DESCRIPTION="Simple shell scripts"
 
 SRCDIR=src
-DIRS=bin lib
-INSTALL_DIRS=$(DIRS)
-INSTALL_FILES=`cd $(SRCDIR); find $(DIRS) -type f 2>/dev/null`
+INSTALL_DIRS=`cd $(SRCDIR); find . -type d 2>/dev/null`
+INSTALL_FILES=`cd $(SRCDIR); find . -type f 2>/dev/null`
 DOC_FILES=*.md
 
 PKG_DIR=pkg
