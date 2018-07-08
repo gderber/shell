@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# ======================================
+#
+# Set Dir Perms
+#
+# Geoff S Derber
+#
+# ==========================
+function __help () {
+cat <<HELP
+Set Dir Perms:
+...
+HELP
+}
+
+function setperms () {
+    XPERMS=$1
+    PERMS=$2
+    
+    find . -type d -exec chmod ${XPERMS} {} \;
+    find . -type d -iname ".*" -exec chmod ${XPERSM} {} \;
+    find . -type f -exec chmod ${PERMS} {} \;
+    find . -type f -iname ".*" -exec chmod ${PERMS} {} \;
+}
+
+function main () {
+    while [[ -n $1 ]];
+    do
+	case $1 in
+	    -x)
+		XPERMS=$2
+		shift 2
+		;;
+	    -p)
+		PERMS=$2
+		shift 2
+		;;
+	    -u)
+		XPERMS=700
+		PERMS=600
+		shift 1
+		;;
+	    -g)
+		XPERMS=750
+		PERMS=640
+		shift 1
+		;;
+	    -w)
+		XPERMS=755
+		PERMS=644
+		shift 1
+		;;
+	    *)
+		__help
+		exit 1
+		;;
+	esac
+    done
+    setperms ${XPERMS} ${PERMS}
+    
+}
+
+main $@

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+ISSUDO=$(grep sudo /etc/group|grep $USER)
+
+if [[ -n $ISSUDO ]]; then
+    sudo -i
+else
+    $SHELL
+fi
