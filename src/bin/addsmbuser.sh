@@ -163,7 +163,7 @@ function addusers () {
 		--gid-number=${IDNUM} \
 		--login-shell=/bin/bash \
 		--home-drive=H \
-		--home-directory="\\aphrodite\users\${USERNAME}"
+		--home-directory="\\\\aphrodite\users\\${USERNAME}"
 		${OPTS} -U Administrator
 	fi
 
