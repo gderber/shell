@@ -1,0 +1,64 @@
+#!/bin/bash
+# ======================
+#
+# Nightly
+#
+# ....
+#
+# ================
+CURL=$(command -v curl)
+SH=$(command -v sh)
+GRIVE=$(command -v grive)
+ONEDRIVE=$(command -v onedrive)
+DOTFILESSH_URL=https://gderber.github.io/dotfiles.sh
+GDRIVE_DIR=${HOME}/GDrive
+ONEDRIVE_DIR=${HOME}/onedrive
+
+function __help () {
+    cat << HELP
+...
+HELP
+}
+
+function run_nightly () {
+    local SEED=$(head -1 /dev/urandom | od -N 1 | awk '{ print $2 }'| sed s/^0*//)
+    local RANDOM=$SEED # Reseed the random number generator
+    local WAIT
+    let "WAIT=${RANDOM} % 60"
+
+    sleep ${WAIT}s
+    ${CURL} ${DOTFILESSH_URL} | ${SH}
+
+    if [[ -d ${GDRIVE_DIR} ]]; then
+	RALDON=${SEED}
+	let "WAIT=${RANDOM} % 60"
+	sleep ${WAIT}s
+	cd ${GDRIVE_DIR}
+	${GRIVE}
+    fi
+    if [[ -d ${ONEDRIVE_DIR} ]]; then
+	RALDON=${SEED}
+	let "WAIT=${RANDOM} % 60"
+	sleep ${WAIT}s
+	${ONEDRIVE}
+    fi    
+}
+
+function main () {
+    while [[ -n $1 ]]
+    do
+	case $1 in
+	    -h|--help)
+		__help
+		exit
+		;;
+	    *)
+		__help
+		exit 1
+		;;
+	esac
+    done
+    run_nightly
+}
+
+main $@

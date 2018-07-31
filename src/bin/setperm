@@ -13,20 +13,47 @@ Set Dir Perms:
 HELP
 }
 
+function fixhomes () {
+    local USERDEFS=$(getent passwd |awk -F : '$3 >= 1000 && $3 < 65534')
+    for LINE in $USERDEFS
+    do
+	local USER=$(echo $LINE|cut -d: -f1)
+	local GROUP=$(echo $LINE|cut -d: -f4)
+	local HOME=$(echo $LINE|cut |d: -f6)
+
+	cd /home
+	setowner $USER $GROUP $DIR
+	setperms 700 600 ${DIR}
+    done
+}
+
+function setowner () {
+    OWNER=$1
+    GROUP=$2
+    DIR=$3
+
+    chown -R $OWNER.$GROUP $DIR
+}
+
 function setperms () {
-    XPERMS=$1
-    PERMS=$2
+    XPERMS=${1:-700}
+    PERMS=${2:-600}
+    DIR=${3:-.}
     
-    find . -type d -exec chmod ${XPERMS} {} \;
-    find . -type d -iname ".*" -exec chmod ${XPERSM} {} \;
-    find . -type f -exec chmod ${PERMS} {} \;
-    find . -type f -iname ".*" -exec chmod ${PERMS} {} \;
+    find ${DIR} -type d -exec chmod ${XPERMS} {} \;
+    find ${DIR} -type d -iname ".*" -exec chmod ${XPERSM} {} \;
+    find ${DIR} -type f -exec chmod ${PERMS} {} \;
+    find ${DIR} -type f -iname ".*" -exec chmod ${PERMS} {} \;
 }
 
 function main () {
     while [[ -n $1 ]];
     do
 	case $1 in
+	    --fixhomes)
+		OP=op_fixhomes
+		shift 1
+		;;
 	    -x)
 		XPERMS=$2
 		shift 2
@@ -56,7 +83,15 @@ function main () {
 		;;
 	esac
     done
-    setperms ${XPERMS} ${PERMS}
+
+    case ${OP} in
+	op_fixhomes)
+	    fixhomes
+	    ;;
+	*)  
+	    setperms ${XPERMS} ${PERMS}
+	    ;;
+    esac
     
 }
 

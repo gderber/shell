@@ -13,6 +13,9 @@ function stopprocs () {
 	    *mbd)
 		sudo systemctl stop ${PROC}
 		;;
+	    samba)
+		sudo systemctl stop samba-ad-dc
+		;;
 	    *)
 		exit 1
 		;;
@@ -126,7 +129,7 @@ function verifyhost () {
 
 function createusermap () {
     sudo cat << USERMAP > /etc/samba/users.map
-!root = SAMDOM\Administrator
+!root = OLYMPUS\Administrator
 USERMAP
 }
 
@@ -150,17 +153,17 @@ function installsmb () {
 }
 
 function main() {
-    installsmb
+    #installsmb
     stopprocs
     removeconf
     cleardirs
-    createkrb5conf
+    #createkrb5conf
     #verifyhost
-    createusermap
-    createsmbconf
-    joindomain
-    startservice
-    verifysetup
+    #createusermap
+    #createsmbconf
+    #joindomain
+    #startservice
+    #verifysetup
 }
 
 main $@

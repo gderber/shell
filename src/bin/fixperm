@@ -13,6 +13,11 @@ Set Dir Perms:
 HELP
 }
 
+function setowner () {
+    OWNER=$(ls -ld /path/of/file/or/directory | awk '{print $3}')
+    chown -R ${OWNER}:${GROUP} ${DIR}
+}
+
 function setperms () {
     XPERMS=$1
     PERMS=$2
