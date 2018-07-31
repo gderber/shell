@@ -1,0 +1,8 @@
+#!/bin/bash
+
+uid=$1 
+server=zeus.olympus.derber.home
+baseDN=cn=Users,dc=olympus,dc=derber,dc=home
+port=636
+
+ldapsearch -x -h $server -p $port -b $baseDN -s sub "(&(objectclass=posixAccount)(uid=$uid))" | sed -n '/^ /{H;d};/sshPublicKey:/x;$g;s/\n *//g;s/sshPublicKey: //gp'

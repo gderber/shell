@@ -162,8 +162,11 @@ function addusers () {
 		--uid-number=${IDNUM} \
 		--gid-number=${IDNUM} \
 		--login-shell=/bin/bash \
+<<<<<<< HEAD
 		--home-drive=H \
 		--home-directory="\\\\aphrodite\users\\${USERNAME}"
+=======
+>>>>>>> b4497b6edb0b3af4cfdc6990a59278a1ea810040
 		${OPTS} -U Administrator
 	fi
 
