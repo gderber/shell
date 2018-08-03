@@ -12,7 +12,7 @@ GRIVE=$(command -v grive)
 ONEDRIVE=$(command -v onedrive)
 DOTFILESSH_URL=https://gderber.github.io/dotfiles.sh
 GDRIVE_DIR=${HOME}/GDrive
-ONEDRIVE_DIR=${HOME}/onedrive
+ONEDRIVE_DIR=${HOME}/Onedrive
 
 function __help () {
     cat << HELP
