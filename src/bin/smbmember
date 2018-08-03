@@ -1,8 +1,28 @@
 #!/usr/bin/env bash
+# ======================================================================
+#
+# Samba
+#
+# by Geoff S. Derber
+#
+# This script sets up a samba domain controller or member server.
+#
+# ======================================================================
+function __help () {
+    cat << HELP
+...
+HELP
+}
 
-
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function stopprocs () {
-    ACTIVE_PROCS=$(ps ax | egrep "samba|smbd|nmbd|winbindd"|grep -v grep|cut -d/ -f4 |cut -d\  -f1|sort -u)
+    local ACTIVE_PROCS=$(ps ax | egrep "samba|smbd|nmbd|winbindd"|grep -v grep|cut -d/ -f4 |cut -d\  -f1|sort -u)
     
     for PROC in $ACTIVE_PROCS
     do
@@ -23,12 +43,26 @@ function stopprocs () {
     done
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function removeconf () {
     CONF=$(smbd -b | grep "CONFIGFILE" | cut -d: -f2|cut -d\  -f2)
     sudo rm /etc/krb5.conf
     sudo rm ${CONF}
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function cleardirs () {
     SMBDIRS=$(smbd -b | egrep "LOCKDIR|STATEDIR|CACHEDIR|PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)
 
@@ -39,6 +73,13 @@ function cleardirs () {
     done
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function createkrb5conf () {
     sudo cat << KRB5CONF > /etc/krb5.conf
 [libdefaults] 
@@ -48,12 +89,20 @@ function createkrb5conf () {
 KRB5CONF
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function createsmbconf () {
     sudo cat << SMBCONF > /etc/samba/smb.conf
-#======================= Global Settings =======================
-
-[global]
-########## Domains ###########
+# ======================================================================
+#
+#
+#
+# ======================================================================
 [global]
 netbios name = $(hostname| tr a-z A-Z)
 workgroup = OLYMPUS
@@ -75,13 +124,13 @@ idmap config * : range = 3000-7999
 # idmap config for Olympus domain
 idmap config OLYMPUS : backend = ad
 idmap config OLYMPUS : schema_mode = rfc2307
-idmap config OLYMPUS : range = 10000-999999
+idmap config OLYMPUS : range = 100000-9999999
 idmap config OLYMPUS : unix_nss_info = yes
 idmap config OLYMPUS : unix_primary_group = yes
 
 ######## Winbind ###########
 # template shell = /bin/bash
-# template home = /home/%U
+# template home = /home/%D/%U
 winbind trusted domains only = no
 winbind use default domain = yes
 winbind enum users = yes
@@ -109,13 +158,13 @@ SMBCONF
 }
 
 function verifyhost () {
-    HOSTSLINE="$(grep $(hostname|tr A-Z a-z) /etc/hosts)"
-    HOSTSIP=$(echo "${HOSTSLINE}"|cut -d\  -f1)
+    local HOSTSLINE="$(grep $(hostname|tr A-Z a-z) /etc/hosts)"
+    local HOSTSIP=$(echo "${HOSTSLINE}"|cut -d\  -f1)
     if [[ ! "${HOSTIP}" =~ "192" ]]; then
-    echo "Edit hosts"
+	echo "Edit hosts"
 	exit 1
     fi
-    GETENT="$(getent hosts $(hostname))"
+    local GETENT="$(getent hosts $(hostname))"
     echo ${HOSTSLINE}
     echo ${GETENT}
     if [[ ${HOSTSLINE} == ${GETENT} ]]; then
