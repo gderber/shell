@@ -10,6 +10,9 @@ CURL=$(command -v curl)
 SH=$(command -v sh)
 GRIVE=$(command -v grive)
 ONEDRIVE=$(command -v onedrive)
+GIT=$(command -v git)
+FETCH="$(${GIT} fetch --all)"
+PULL="$(${GIT} pull --all)"
 DOTFILESSH_URL=https://gderber.github.io/dotfiles.sh
 GDRIVE_DIR=${HOME}/GDrive
 ONEDRIVE_DIR=${HOME}/Onedrive
@@ -20,7 +23,18 @@ function __help () {
 HELP
 }
 
-function run_nightly () {
+function systemupdate () {
+    cd /usr/local/bin
+    for DIR in $(ls -d *)
+    do
+	cd $DIR
+	# if git repo ...
+	${PULL}
+	make install
+    done
+}
+
+function userupdate () {
     local SEED=$(head -1 /dev/urandom | od -N 1 | awk '{ print $2 }'| sed s/^0*//)
     local RANDOM=$SEED # Reseed the random number generator
     local WAIT
@@ -48,6 +62,10 @@ function main () {
     while [[ -n $1 ]]
     do
 	case $1 in
+	    -s|--system)
+		SYSTEM=true
+		shift 1
+		;;
 	    -h|--help)
 		__help
 		exit
@@ -58,7 +76,11 @@ function main () {
 		;;
 	esac
     done
-    run_nightly
+
+    if [[ "${SYSTEM}" == "true" ]];
+       systemupdate
+    fi
+    userupdate
 }
 
 main $@
