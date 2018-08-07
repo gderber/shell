@@ -238,6 +238,65 @@ function installsmb () {
     apt install samba libnss-winbind libpam-winbind krb5-user libpam-krb5
 }
 
+function isbind9installed () {
+    echo -ne "true"
+}
+
+function setupdomain () {
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM} | cut -d. -f1)
+    local DNS
+    local ADMPASS
+    local PRVTDIR
+    local KRB5CONF
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    local HOSTNAME%$(hostname|tr A-Z|a-z)
+
+    read -p "Enter your desired Administrator password: " ADMPASS
+    [[ "$(isbind9installed)" == "true" ]] && DNS="BIND9_DLZ" || DNS="SAMBA_INTERNAL"
+
+    echo ${DNS}
+    sleep 60
+
+
+    samba-tool domain provision \
+	       --server-role=dc \
+	       --use-rfc2307 \
+	       --dns-backend=${DNS} \
+	       --realm=${REALM} \
+	       --domain=${DOMAIN} \
+	       --adminpass=${ADMPASS}
+
+    PRVTDIR="=$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
+    KRB5CONF="${PRVTDIR}/krb5.conf"
+
+    cp ${KRB5CONF} /etc/
+
+    systemctl start samba-ad-dc
+    smbclient -L localhost -U%
+    sleep 5
+    smbclient //localhost/netlogon -UAdministrator -c 'ls'
+    sleep 5
+    host -t SRV _ldap._tcp.${LCREALM}.
+    sleep 5
+    host -t SRV _kerberos._udp.${LCREALM}.
+    sleep 5
+    host -t A ${HOSTNAME}.${LCREALM}.
+
+    kinit administrator
+    klist
+}
+
+function setupmember () {
+    createkrb5conf
+    createsmbconf
+    createusermap
+    joindomain
+    startservice
+    verifysetup
+
+}
+
 function main() {
     while [[ -n $1 ]];
     do
@@ -265,17 +324,24 @@ function main() {
 	esac
     done
     
-    #installsmb
+    installsmb
     stopprocs
     removeconf
     cleardirs
-    #createkrb5conf
     #verifyhost
-    #createusermap
-    #createsmbconf
-    #joindomain
-    #startservice
-    #verifysetup
+    
+    case $ROLE in
+	pdc)
+	    setupdomain
+	    ;;
+	dc)
+	    adddc
+	    ;;
+	fileserver|member)
+	    setupmember
+	    ;;
+	esac
+
 }
 
 main $@
