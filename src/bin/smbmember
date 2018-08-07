@@ -149,18 +149,18 @@ username map = /etc/samba/users.map
 # idmap config for ...
 idmap config * : backend = tdb
 idmap config * : range = 3000-7999
-# idmap config for Olympus domain
-idmap config OLYMPUS : backend = ad
-idmap config OLYMPUS : schema_mode = rfc2307
-idmap config OLYMPUS : range = 100000-9999999
-idmap config OLYMPUS : unix_nss_info = yes
-idmap config OLYMPUS : unix_primary_group = yes
+# idmap config for ${DOMAIN} domain
+idmap config ${DOMAIN} : backend = ad
+idmap config ${DOMAIN} : schema_mode = rfc2307
+idmap config ${DOMAIN} : range = 100000-9999999
+idmap config ${DOMAIN} : unix_nss_info = yes
+idmap config ${DOMAIN} : unix_primary_group = yes
 
 ######## Winbind ###########
 # template shell = /bin/bash
 # template home = /home/%D/%U
-winbind trusted domains only = no
-winbind use default domain = yes
+#winbind trusted domains only = no
+#winbind use default domain = yes
 winbind enum users = yes
 winbind enum groups = yes
 winbind refresh tickets = Yes 
@@ -195,7 +195,12 @@ SMBCONF
 function verifyhost () {
     local HOSTSLINE="$(grep $(hostname|tr A-Z a-z) /etc/hosts)"
     local HOSTSIP=$(echo "${HOSTSLINE}"|cut -d\  -f1)
-    if [[ ! "${HOSTIP}" =~ "192" ]]; then
+    local IPADDR=$(hostname --ip-adress)
+    local REALM=$(getrealm)
+    local LCREALM="$(echo ${REALM} |tr A-Z a-z)"
+    local LCHOSTNAME=$(hostname|tr A-Z a-z)
+    
+    if [[ "${HOSTIP}" != "${IPADDR}" ]]; then
 	echo "Edit hosts"
 	exit 1
     fi
@@ -212,8 +217,10 @@ function verifyhost () {
 }
 
 function createusermap () {
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM}|cut -d. -f1)
     sudo cat << USERMAP > /etc/samba/users.map
-!root = OLYMPUS\Administrator
+!root = ${DOMAIN}\Administrator
 USERMAP
 }
 
@@ -250,7 +257,7 @@ function setupdomain () {
     local PRVTDIR
     local KRB5CONF
     local LCREALM=$(echo ${REALM}|tr A-Z a-z)
-    local HOSTNAME%$(hostname|tr A-Z|a-z)
+    local HOSTNAME=$(hostname|tr A-Z a-z)
 
     read -p "Enter your desired Administrator password: " ADMPASS
     [[ "$(isbind9installed)" == "true" ]] && DNS="BIND9_DLZ" || DNS="SAMBA_INTERNAL"
@@ -259,20 +266,21 @@ function setupdomain () {
     sleep 60
 
 
-    samba-tool domain provision \
-	       --server-role=dc \
-	       --use-rfc2307 \
-	       --dns-backend=${DNS} \
-	       --realm=${REALM} \
-	       --domain=${DOMAIN} \
-	       --adminpass=${ADMPASS}
+    sudo samba-tool \
+	 domain provision \
+	 --server-role=dc \
+	 --use-rfc2307 \
+	 --dns-backend=${DNS} \
+	 --realm=${REALM} \
+	 --domain=${DOMAIN} \
+	 --adminpass=${ADMPASS}
 
     PRVTDIR="=$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
     KRB5CONF="${PRVTDIR}/krb5.conf"
 
-    cp ${KRB5CONF} /etc/
+    sudo cp ${KRB5CONF} /etc/
 
-    systemctl start samba-ad-dc
+    sudo systemctl start samba-ad-dc
     smbclient -L localhost -U%
     sleep 5
     smbclient //localhost/netlogon -UAdministrator -c 'ls'
@@ -298,20 +306,26 @@ function setupmember () {
 }
 
 function main() {
+    local ROLE
+    
     while [[ -n $1 ]];
     do
 	case $1 in
 	    --pdc)
 		ROLE=pdc
+		shift 1
 		;;
 	    --dc)
 		ROLE=dc
+		shift 1
 		;;
 	    --fs)
 		ROLE=fileserver
+		shift 1
 		;;
 	    --mbr)
 		ROLE=member
+		shift 1
 		;;
 	    -h|--help)
 		__help
@@ -324,10 +338,10 @@ function main() {
 	esac
     done
     
-    installsmb
-    stopprocs
-    removeconf
-    cleardirs
+    #installsmb
+    #stopprocs
+    #removeconf
+    #cleardirs
     #verifyhost
     
     case $ROLE in
