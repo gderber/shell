@@ -51,7 +51,7 @@ function stopprocs () {
 #
 # ======================================================================
 function removeconf () {
-    CONF=$(smbd -b | grep "CONFIGFILE" | cut -d: -f2|cut -d\  -f2)
+    local CONF=$(smbd -b | grep "CONFIGFILE" | cut -d: -f2|cut -d\  -f2)
     sudo rm /etc/krb5.conf
     sudo rm ${CONF}
 }
@@ -64,11 +64,12 @@ function removeconf () {
 #
 # ======================================================================
 function cleardirs () {
-    SMBDIRS=$(smbd -b | egrep "LOCKDIR|STATEDIR|CACHEDIR|PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)
+    local SMBDIRS=$(smbd -b | egrep "LOCKDIR|STATEDIR|CACHEDIR|PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)
 
-    for DIR in $SMBDIRS
+    local DIR
+    for DIR in ${SMBDIRS}
     do
-	cd $DIR
+	cd ${DIR}
 	sudo rm *.tdb *.ldb
     done
 }
@@ -80,12 +81,36 @@ function cleardirs () {
 # Stops all active running samba processes.
 #
 # ======================================================================
+function getrealm () {
+    local REALM=$(domainname -d)
+
+    if [[ ! -n ${REALM} ]]; then
+	read -p "What is the realm name" REALM
+    fi
+    REALM="$(echo ${REALM}|tr a-z A-Z)"
+    echo -ne "${REALM}"
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function createkrb5conf () {
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM}|cut -d. -f1)
     sudo cat << KRB5CONF > /etc/krb5.conf
 [libdefaults] 
-     default_realm = OLYMPUS.DERBER.HOME
+     default_realm = ${REALM}
      dns_lookup_realm = false 
      dns_lookup_kdc = true 
+
+[realms]
+    ${REALM} = {
+        auth_to_local = RULE:[1:${DOMAIN}\\$1]
+    } 
 KRB5CONF
 }
 
@@ -97,6 +122,9 @@ KRB5CONF
 #
 # ======================================================================
 function createsmbconf () {
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM}|cut -d. -f1)
+    local LCREALM="$(echo ${REALM} |tr A-Z a-z)"
     sudo cat << SMBCONF > /etc/samba/smb.conf
 # ======================================================================
 #
@@ -105,8 +133,8 @@ function createsmbconf () {
 # ======================================================================
 [global]
 netbios name = $(hostname| tr a-z A-Z)
-workgroup = OLYMPUS
-realm = OLYMPUS.DERBER.HOME
+workgroup = ${DOMAIN}
+realm = ${REALM}
 
 security = ADS
 
@@ -145,9 +173,16 @@ store dos attributes = yes
 dedicated keytab file = /etc/krb5.keytab
 kerberos method = secrets and keytab
 
-#[netlogon]
-#        path = /var/lib/samba/sysvol/olympus.home/scripts
-#        read only = No
+
+# ======================================================================
+#
+# Share settings
+#
+# ======================================================================
+
+[netlogon]
+        path = /var/lib/samba/sysvol/${LCREALM}/scripts
+        read only = No
 
 [sysvol]
         path = /var/lib/samba/sysvol
@@ -192,9 +227,11 @@ function startservice () {
 }
 
 verifysetup () {
-    wbinfo --ping-dc
-    getent passwd
-    getent group
+    wbinfo --ping-dc &&
+	sleep 10 &&
+	getent passwd &&
+	sleep 10 &&
+        getent group
 }
 
 function installsmb () {
@@ -202,6 +239,32 @@ function installsmb () {
 }
 
 function main() {
+    while [[ -n $1 ]];
+    do
+	case $1 in
+	    --pdc)
+		ROLE=pdc
+		;;
+	    --dc)
+		ROLE=dc
+		;;
+	    --fs)
+		ROLE=fileserver
+		;;
+	    --mbr)
+		ROLE=member
+		;;
+	    -h|--help)
+		__help
+		exit
+		;;
+	    *)
+		__help
+		exit 1
+		;;
+	esac
+    done
+    
     #installsmb
     stopprocs
     removeconf
