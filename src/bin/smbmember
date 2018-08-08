@@ -109,7 +109,7 @@ function createkrb5conf () {
 
 [realms]
     ${REALM} = {
-        auth_to_local = RULE:[1:${DOMAIN}\\$1]
+        auth_to_local = RULE:[1:${DOMAIN}\\\$1]
     } 
 KRB5CONF
 }
@@ -128,7 +128,7 @@ function createsmbconf () {
     sudo cat << SMBCONF > /etc/samba/smb.conf
 # ======================================================================
 #
-#
+# 
 #
 # ======================================================================
 [global]
@@ -192,6 +192,13 @@ SMBCONF
 
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function verifyhost () {
     local HOSTSLINE="$(grep $(hostname|tr A-Z a-z) /etc/hosts)"
     local HOSTSIP=$(echo "${HOSTSLINE}"|cut -d\  -f1)
@@ -216,6 +223,13 @@ function verifyhost () {
     
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function createusermap () {
     local REALM=$(getrealm)
     local DOMAIN=$(echo ${REALM}|cut -d. -f1)
@@ -224,15 +238,36 @@ function createusermap () {
 USERMAP
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function joindomain () {
     net ads join -U administrator
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function startservice () {
     sudo systemctl start winbind
     sudo systemctl start nmbd
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 verifysetup () {
     wbinfo --ping-dc &&
 	sleep 10 &&
@@ -241,14 +276,35 @@ verifysetup () {
         getent group
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function installsmb () {
     apt install samba libnss-winbind libpam-winbind krb5-user libpam-krb5
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function isbind9installed () {
     echo -ne "true"
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function setupdomain () {
     local REALM=$(getrealm)
     local DOMAIN=$(echo ${REALM} | cut -d. -f1)
@@ -295,6 +351,13 @@ function setupdomain () {
     klist
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function setupmember () {
     createkrb5conf
     createsmbconf
@@ -305,6 +368,13 @@ function setupmember () {
 
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function main() {
     local ROLE
     
