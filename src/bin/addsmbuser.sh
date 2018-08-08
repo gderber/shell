@@ -99,14 +99,21 @@ function addusers () {
 	fi
        	GROUPNAME=${USERNAME}_g
     
-#	PPATH=$(echo ${LINE}|cut -d, -f1)
+	HPATH="\\\\aphrodite\\users\\${USERNAME}"
+	PPATH="\\\\aphrodite\\profile\\${USERNAME}"
 #	SPATH=$(echo ${LINE}|cut -d, -f1)
-#	DLTR=$(echo ${LINE}|cut -d, -f1)
+	DLTR="H:"
+
+	FQDN=$(domainname -f |cut -d. -f3-)	
+	EMAIL="${USERNAME}@${FQDN}"
 
 	echo "USER  = ${USERNAME}"
 	echo "GROUP = ${GROUPNAME}"
 	echo "IDNUM = ${IDNUM}"
 	echo "Domain = ${DOMAIN}"
+	echo "HPATH = ${HPATH}"
+	echo "DLTR = ${DLTR}"
+	echo "PPATH = ${PPATH}"
 	echo "1.  Given Name   : ${GN}"
 	echo "2.  Surname      : ${SN}"
 	echo "3.  Initial      : ${IN}"
@@ -125,10 +132,10 @@ function addusers () {
 
 	
 
-	read -p "Continue? (Y/N): " confirm &&
-	    [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] ||
-		exit 1
-	    
+#	read -p "Continue? (Y/N): " confirm &&
+#	    [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] ||
+#		exit 1
+
 	[[ -n ${SN} ]] && OPTS="--surname=${SN}"
 	[[ -n ${IN} ]] && OPTS="${OPTS} --initials=${IN}"
 	[[ -n ${PPATH} ]] && OPTS="${OPTS} --profile-path=${PPATH}"
@@ -138,7 +145,7 @@ function addusers () {
 	[[ -n ${TITLE} ]] && OPTS="${OPTS} --job-title=${TITLE}"
 	[[ -n ${DEPT} ]] && OPTS="${OPTS} --department=${DEPT}"
 	[[ -n ${COMPANY} ]] && OPTS="${OPTS} --company=${COMPANY}"
-	[[ -n ${DESC} ]] && OPTS="${OPTS} --description=${DESCRIPTION}"
+	#[[ -n ${DESC} ]] && OPTS="${OPTS} --description=${DESCRIPTION}"
 	[[ -n ${EMAIL} ]] && OPTS="${OPTS} --mail-address=${EMAIL}"
 	[[ -n ${WEBSITE} ]] && OPTS="${OPTS} --internet-address=${WEBSITE}"
 	[[ -n ${PHONE} ]] && OPTS="${OPTS} --telephone-number=${PHONE}"
@@ -146,11 +153,11 @@ function addusers () {
 	[[ -n ${GECOS} ]] && OPTS="${OPTS} --gecos=${GECOS}"
 	
 	if [[ "${DEBUG}" != "true" ]]; then
-	   #sudo samba-tool group \
-	#	add ${GROUPNAME} \
-	#	--gid-number ${IDNUM} \
-	#	--nis-domain=${DOMAIN} \
-	#	-U Administrator
+	    sudo samba-tool group \
+		add ${GROUPNAME} \
+		--gid-number ${IDNUM} \
+		--nis-domain=${DOMAIN} \
+		-U Administrator
 
 	    echo "sudo samba-tool user create ${USERNAME} ${PASSWORD} --given-name=${GN} --nis-domain=${DOMAIN} --unix-home=/home/${USERNAME} --uid-number=${IDNUM} --gid-number=${IDNUM} --login-shell=/bin/bash ${OPTS} -U Administrator"
 
@@ -158,7 +165,7 @@ function addusers () {
 		create ${USERNAME} ${PASSWORD} \
 		--given-name=${GN} \
 		--nis-domain=${DOMAIN} \
-		--unix-home=/home/${USERNAME} \
+		--unix-home=/home/${DOMAIN}/${USERNAME} \
 		--uid-number=${IDNUM} \
 		--gid-number=${IDNUM} \
 		--login-shell=/bin/bash \
