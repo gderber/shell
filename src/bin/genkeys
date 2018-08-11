@@ -7,5 +7,5 @@
 keyVal=$(gpg -K | awk '/sec/{if (length($2) > 0) print $2}'|sed 's|.*/0x||' ) &&
     [[ ! -n $keyVal ]] &&
     gpg --full-generate-key --expert &&
-    keyVal=$(gpg -K | awk '/sec/{if (length($2) > 0) print $2}') &&
+    keyVal=$(gpg -K | awk '/sec/{if (length($2) > 0) print $2}'|sed 's|.*/0x||' ) &&
     gpg --edit-key --expert $keyVal
