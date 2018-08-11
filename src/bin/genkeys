@@ -1,0 +1,12 @@
+#!/bin/bash
+
+[[ ! -f .ssh/id_ed25519 ]] &&
+    ssh-keygen -t ed25519
+
+
+keyVal=$(gpg -K | awk '/sec/{if (length($2) > 0) print $2}'|sed 's|.*/0x||' ) &&
+    [[ ! -n $keyVal ]] &&
+    gpg --full-generate-key --expert &&
+    keyVal=$(gpg -K | awk '/sec/{if (length($2) > 0) print $2}') &&
+    gpg --edit-key --expert $keyVal
+
