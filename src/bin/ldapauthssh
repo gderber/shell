@@ -1,7 +1,7 @@
 #!/bin/bash
 
 uid=$1 
-server=zeus.olympus.derber.home
+server=zeus.olympus.drbr.orf
 baseDN=cn=Users,dc=olympus,dc=derber,dc=home
 port=636
 
