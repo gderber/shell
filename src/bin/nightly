@@ -30,7 +30,8 @@ function systemupdate () {
 	cd $DIR
 	# if git repo ...
 	${PULL}
-	make install
+	[[ -f Makefile ]] && make install
+	cd ..
     done
 }
 
@@ -59,6 +60,7 @@ function userupdate () {
 }
 
 function main () {
+    local SYSTEM=false
     while [[ -n $1 ]]
     do
 	case $1 in
