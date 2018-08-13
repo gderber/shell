@@ -24,7 +24,7 @@ HELP
 }
 
 function systemupdate () {
-    cd /usr/local/bin
+    cd /usr/local/src
     for DIR in $(ls -d *)
     do
 	cd $DIR
@@ -77,7 +77,7 @@ function main () {
 	esac
     done
 
-    if [[ "${SYSTEM}" == "true" ]];
+    if [[ "${SYSTEM}" == "true" ]]; then
        systemupdate
     fi
     userupdate
