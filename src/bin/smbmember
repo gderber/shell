@@ -135,7 +135,6 @@ function createsmbconf () {
 netbios name = $(hostname| tr a-z A-Z)
 workgroup = ${DOMAIN}
 realm = ${REALM}
-
 security = ADS
 
 # Logging
@@ -157,10 +156,10 @@ idmap config ${DOMAIN} : unix_nss_info = yes
 idmap config ${DOMAIN} : unix_primary_group = yes
 
 ######## Winbind ###########
-# template shell = /bin/bash
+template shell = /bin/bash
 # template home = /home/%D/%U
 #winbind trusted domains only = no
-winbind use default domain = yes
+#winbind use default domain = yes
 winbind enum users = yes
 winbind enum groups = yes
 winbind refresh tickets = Yes 
@@ -170,6 +169,7 @@ vfs objects = acl_xattr
 map acl inherit = yes
 store dos attributes = yes
 
+# Used for SSH Single Sign On
 dedicated keytab file = /etc/krb5.keytab
 kerberos method = secrets and keytab
 
@@ -412,7 +412,7 @@ function main() {
     stopprocs
     removeconf
     cleardirs
-    #verifyhost
+    verifyhost
     
     case $ROLE in
 	pdc)
