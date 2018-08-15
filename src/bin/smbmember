@@ -202,14 +202,14 @@ SMBCONF
 function verifyhost () {
     local HOSTSLINE="$(grep $(hostname|tr A-Z a-z) /etc/hosts)"
     local HOSTSIP=$(echo "${HOSTSLINE}"|cut -d\  -f1)
-    local IPADDR=$(hostname --ip-adress)
+    local IPADDR=$(hostname --ip-address)
     local REALM=$(getrealm)
     local LCREALM="$(echo ${REALM} |tr A-Z a-z)"
     local LCHOSTNAME=$(hostname|tr A-Z a-z)
     
     if [[ "${HOSTIP}" != "${IPADDR}" ]]; then
 	echo "Edit hosts"
-	exit 1
+	#exit 1
     fi
     local GETENT="$(getent hosts $(hostname))"
     echo ${HOSTSLINE}
@@ -298,14 +298,7 @@ function isbind9installed () {
     echo -ne "true"
 }
 
-# ======================================================================
-#
-# stopprocs
-#
-# Stops all active running samba processes.
-#
-# ======================================================================
-function setupdomain () {
+function provisiondomain () {
     local REALM=$(getrealm)
     local DOMAIN=$(echo ${REALM} | cut -d. -f1)
     local DNS
@@ -335,8 +328,19 @@ function setupdomain () {
     KRB5CONF="${PRVTDIR}/krb5.conf"
 
     sudo cp ${KRB5CONF} /etc/
+}
 
-    sudo systemctl start samba-ad-dc
+function startdc () {
+    echo "Starting Samba AD DC"
+    sudo systemctl start samba-ad-dc &&
+    sleep 5
+}    
+
+function verifydomain () {
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    local HOSTNAME=$(hostname|tr A-Z a-z)
+
+    echo "Verify access ..."
     smbclient -L localhost -U%
     sleep 5
     smbclient //localhost/netlogon -UAdministrator -c 'ls'
@@ -349,6 +353,19 @@ function setupdomain () {
 
     kinit administrator
     klist
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function setupdomain () {
+    provisiondomain
+    startdc
+    verifydomain
 }
 
 # ======================================================================

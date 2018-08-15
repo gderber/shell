@@ -139,7 +139,7 @@ function addusers () {
 	[[ -n ${SN} ]] && OPTS="--surname=${SN}"
 	[[ -n ${IN} ]] && OPTS="${OPTS} --initials=${IN}"
 	[[ -n ${PPATH} ]] && OPTS="${OPTS} --profile-path=${PPATH}"
-	[[ -n ${DRIVELTR} ]] && OPTS="${OPTS} --home-drive=${DRIVELTR}"
+	[[ -n ${DLTR} ]] && OPTS="${OPTS} --home-drive=${DLTR}"
 	[[ -n ${HPATH} ]] && OPTS="${OPTS} --home-directory=${HPATH}"
 	[[ -n ${SPATH} ]] && OPTS="${OPTS} --script-path=${SPATH}"
 	[[ -n ${TITLE} ]] && OPTS="${OPTS} --job-title=${TITLE}"
