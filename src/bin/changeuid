@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# ======================================
+#
+# Set Dir Perms
+#
+# Geoff S Derber
+#
+# ==========================
+function __help () {
+cat <<HELP
+Set Dir Perms:
+...
+HELP
+}
+
+
+function setperms () {
+    USERNAME=$1
+    NUMBER=$2
+    OLDUID=$(getent passwd | awk -v username=${USERNAME} -F":" '{ if($1==username){print $3} }' )
+    OLDGID=$(getent passwd | awk -v username=${USERNAME} -F":" '{ if($1==username){print $4} }' )
+    echo $OLDUID $OLDGID
+    #sudo usermod -u ${NUMBER} ${USERNAME}
+    #sudo groupmodmod -g ${NUMBER} ${USERNAME}
+
+    find / -group ${OLDGID} -print
+    find / -user ${OLDUID} -print
+    # find / -group 2000 -exec chgrp -h foo {} \;
+    # find / -user 1005 -exec chown -h foo {} \;
+}
+
+function main () {
+    while [[ -n $1 ]];
+    do
+	case $1 in
+	    -*)
+		__help
+		exit 1
+		;;
+	    -\?|-h|--help)
+		__help
+		exit
+		;;
+	    [a-z][a-z-]*)
+		USERNAME=$1
+		shift 1
+		;;
+	    [1-9][0-9]*)
+		NUMBER=$1
+		shift 1
+		;;
+	    *)
+		__help
+		shift 1
+		;;
+	esac
+	echo "USERNAME=${USERNAME} NUMBER=${NUMBER}"
+    done
+
+    setperms ${USERNAME} ${NUMBER}
+    
+}
+
+main $@

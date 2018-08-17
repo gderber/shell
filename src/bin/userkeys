@@ -1,0 +1,83 @@
+#!/bin/bash
+# =============
+#
+# Userkeys
+#
+# =============
+function gen_keys () {
+    local USR=$1
+    local USRHOME=$2
+    unset KEY
+    local KEY
+
+    if [[ ! -d ${USRHOME} ]]; then
+	echo ${USRHOME} &&
+	    read -p "Continue? (Y/N): " confirm &&
+	    [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] ||
+		exit 1
+	
+	mkdir -p "${USRHOME}"
+	chown ${USR}:${USR}_g ${USRHOME}
+	cd ${USRHOME}
+	sudo -i -u ${USR} curl -k https://olympus.home/dotfiles.sh | \
+	    sudo -i -u ${USR} sh
+    fi
+    
+    [[ -f "${USRHOME}/.ssh/id_rsa" ]] && KEY=RSA
+    [[ -f "${USRHOME}/.ssh/id_ed25519" ]] && KEY=ED25519    
+
+    if [[ -n ${KEY} ]]; then
+	read -p "${KEY} key exists for ${USR}.  Do you wish to replace key? " confirm
+	if [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]]; then
+		sudo -i -u ${USR} ssh-keygen -t ed25519
+	fi
+    else	    
+	sudo -i -u ${USR} ssh-keygen -t ed25519
+    fi
+}
+
+function main () {
+
+    while [[ -n $1 ]]
+    do
+	case $1 in
+	    -g|--generate)
+		OP=generate
+		shift 1
+		;;
+	    -i|--import)
+		OP=import
+		shift 1
+		;;
+	    -h|--help)
+		__help
+		exit
+		;;
+	    *)
+		__help
+		exit 1
+		;;
+	esac
+
+    done
+
+    for USR in $(getusers |sort)
+    do
+	if getent passwd ${USR} 2&> /dev/null; then
+	    USRHOME=$(eval echo "~${USR}")
+	    case $OP in
+		generate)
+		    gen_keys ${USR} ${USRHOME}
+		    sudo -i -u ${USR} cp "${USRHOME}/.ssh/id_ed25519.pub" "/tmp/${USR}.pub"
+		    ;;
+		import)
+		    sudo -i -u ${USR} cp /tmp/${USR}-cert.pub ${USRHOME}/.ssh/id_ed25519-cert.pub
+		    ;;
+	    esac
+	else
+	    echo "Not a user"
+	fi
+    done
+}
+
+main $@
