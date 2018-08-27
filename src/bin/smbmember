@@ -12,10 +12,10 @@ function __help () {
     cat << HELP
 Smbmember
 
---pdc	  Setup the initial Domain Controller
---dc	  Setup additional Domain Controllers
---fs	  Setup a Domain File Server
---mbr	  Setup a Domain Member
+--pdc  Setup the initial Domain Controller
+--dc    Setup additional Domain Controllers
+--fs    Setup a Domain File Server
+--mbr   Setup a Domain Member
 --domain  Setup all domain systems.  Reads from a semi-colon delimeted file.
 HELP
 }
@@ -32,19 +32,19 @@ function stopprocs () {
     local ACTIVE_PROCS=$(ps ax | egrep "samba|smbd|nmbd|winbindd"|grep -v grep|cut -d/ -f4 |cut -d\  -f1|sort -u)
 
     if [[ "${ROLE}" == "pdc" ]] || [[ "${ROLE}" == "adddc" ]]; then
-	    local DNS=${getdnsserver)
-	    if [[ "${DNS}" == "BIND9_DLZ" ]]; then
-		sudo systemctl stop bind9
-	    fi
+        local DNS=${getdnsserver)
+        if [[ "${DNS}" == "BIND9_DLZ" ]]; then
+            sudo systemctl stop bind9
+        fi
     fi
-    
+
     for PROC in $ACTIVE_PROCS
     do
-	case $PROC in
-	    winbindd)
-		sudo systemctl stop winbind
-		;;
-	    *mbd)
+        case $PROC in
+            winbindd)
+                sudo systemctl stop winbind
+                ;;
+            *mbd)
 		sudo systemctl stop ${PROC}
 		;;
 	    samba)
@@ -84,8 +84,8 @@ function cleardirs () {
     local DIR
     for DIR in ${SMBDIRS}
     do
-	cd ${DIR}
-	sudo rm *.tdb *.ldb
+        cd ${DIR}
+        sudo rm *.tdb *.ldb
     done
 }
 
@@ -215,7 +215,7 @@ SMBCONF
 #
 # ======================================================================
 function fssmbconf () {
-    cat << FSSMBCONF >>
+    cat << FSSMBCONF >> /etc/samba/smb.conf
 [profiles]
 	comment = Users profiles
 	path = /srv/samba/profiles/
