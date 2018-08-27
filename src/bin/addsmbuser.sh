@@ -200,7 +200,45 @@ function addusers () {
 	IDNUM=$(( $IDNUM + 1 ))
     done 3< ${INPUTFILE}
 }
+
+# ======================================================================
+#
+# Addusers
+#
+# ======================================================================
+function addusers () {
+    DEBUG=$1
+    IDNUM=$(getmaxuid)
+    DOMAIN=$(getdomain)
+    INPUTFILE=grouplist
     
+    while IFS='' read -r -u 3  LINE || [[ -n "$LINE" ]]
+    do
+	GROUPNAME="$(echo ${LINE} | cut -d\; -f1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+      	IDNUM1="$(echo ${LINE} | cut -d\; -f15)"
+
+	IDNUM=${IDNUM1:-IDNUM}	
+	echo "GROUP = ${GROUPNAME}"
+	echo "IDNUM = ${IDNUM}"
+
+	read -p "Continue? (Y/N): " confirm &&
+	    [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] ||
+		exit 1
+
+	if [[ "${DEBUG}" != "true" ]]; then
+	    sudo samba-tool group \
+		add ${GROUPNAME} \
+		--gid-number ${IDNUM} \
+		--nis-domain=${DOMAIN} \
+		-U Administrator
+
+	unset GROUPNAME
+	unset IDNUM1
+
+	IDNUM=$(( $IDNUM + 1 ))
+    done 3< ${INPUTFILE}
+}
+
 # ======================================================================
 #
 # Main
@@ -221,6 +259,7 @@ function main () {
 	esac
     done
     addusers $TEST
+    addgroup $TEST
 }
 
 main "$@"

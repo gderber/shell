@@ -10,7 +10,13 @@
 # ======================================================================
 function __help () {
     cat << HELP
-...
+Smbmember
+
+--pdc	  Setup the initial Domain Controller
+--dc	  Setup additional Domain Controllers
+--fs	  Setup a Domain File Server
+--mbr	  Setup a Domain Member
+--domain  Setup all domain systems.  Reads from a semi-colon delimeted file.
 HELP
 }
 
@@ -22,7 +28,15 @@ HELP
 #
 # ======================================================================
 function stopprocs () {
+    local ROLE=$1
     local ACTIVE_PROCS=$(ps ax | egrep "samba|smbd|nmbd|winbindd"|grep -v grep|cut -d/ -f4 |cut -d\  -f1|sort -u)
+
+    if [[ "${ROLE}" == "pdc" ]] || [[ "${ROLE}" == "adddc" ]]; then
+	    local DNS=${getdnsserver)
+	    if [[ "${DNS}" == "BIND9_DLZ" ]]; then
+		sudo systemctl stop bind9
+	    fi
+    fi
     
     for PROC in $ACTIVE_PROCS
     do
@@ -41,13 +55,14 @@ function stopprocs () {
 		;;
 	esac 
     done
+
 }
 
 # ======================================================================
 #
-# stopprocs
+# removeconf
 #
-# Stops all active running samba processes.
+# Remove all previous configuration files.
 #
 # ======================================================================
 function removeconf () {
@@ -151,7 +166,7 @@ idmap config * : range = 3000-7999
 # idmap config for ${DOMAIN} domain
 idmap config ${DOMAIN} : backend = ad
 idmap config ${DOMAIN} : schema_mode = rfc2307
-idmap config ${DOMAIN} : range = 100000-9999999
+idmap config ${DOMAIN} : range = 100000-99999999
 idmap config ${DOMAIN} : unix_nss_info = yes
 idmap config ${DOMAIN} : unix_primary_group = yes
 
@@ -199,6 +214,110 @@ SMBCONF
 # Stops all active running samba processes.
 #
 # ======================================================================
+function fssmbconf () {
+    cat << FSSMBCONF >>
+[profiles]
+	comment = Users profiles
+	path = /srv/samba/profiles/
+	read only = No
+
+# H:
+[users]
+	path = /home
+	read only = no
+
+# A:
+[Applications]
+	path = /srv/samba/share/applications
+# B:
+[Books]
+	path = /srv/samba/shares/books
+	read only = no
+
+# I:
+[ISO Files]
+     path = /srv/samba/shares/iso_files
+     read only = no
+
+# M:
+[Music]
+	path = /srv/samba/shares/music
+	read only = no
+
+# P:
+[Pictures]
+	path = /srv/samba/shares/pictures
+	read only = no
+
+# V:
+[Videos]
+	path = /srv/samva/shares/videos
+	read only = no
+
+FSSMBCONF
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function tlssmbconf () {
+    local REALM=$(getrealm)
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    local DOMAIN=$(echo ${LCREALM} | cut -d. -f1)
+    lcoal ORG=$(echo ${LCREALM} | cut -d. -f2)
+    local HOSTNAME=$(hostname|tr A-Z a-z)
+
+    sed -i '|idmap_ldb:*|i \
+    \n \
+    tls enabled  = yes \
+    tls keyfile  = /etc/ssl/private/${HOSTNAME}.key \
+    tls certfile = /etc/ssl/certs/${ORG}-${DOMAIN}-${HOSTNAME}.pem \
+    tls cafile   = /etc/ssl/certs/${ORG}-${DOMAIN}-network-component.pem \
+    \n \
+    \n \
+    # For Winbind Users
+    template shell = /bin/bash \
+    template homedir = /home/%D/%U \
+    \n \
+    winbind enum users = yes \
+    winbind enum groups = yes \
+    \n' /etc/samba/smb.conf
+
+} 
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function aclsmbconf () {
+    local REALM=$(getrealm)
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    local DOMAIN=$(echo ${LCREALM} | cut -d. -f1)
+    lcoal ORG=$(echo ${LCREALM} | cut -d. -f2)
+    local HOSTNAME=$(hostname|tr A-Z a-z)
+
+    sed -i '|winbind enum groups = yes|i \
+    vfs objects = acl_xattr \ 
+    map acl inherit = yes \
+    store dos attributes = yes  \
+    \n' /etc/samba/smb.conf
+
+} 
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function verifyhost () {
     local HOSTSLINE="$(grep $(hostname|tr A-Z a-z) /etc/hosts)"
     local HOSTSIP=$(echo "${HOSTSLINE}"|cut -d\  -f1)
@@ -206,18 +325,13 @@ function verifyhost () {
     local REALM=$(getrealm)
     local LCREALM="$(echo ${REALM} |tr A-Z a-z)"
     local LCHOSTNAME=$(hostname|tr A-Z a-z)
+    local GETENT="$(getent hosts $(hostname) | tr -d '[:space:]')"
+    HOSTSLINE="$(echo ${HOSTSLINE} | tr -d '[:space:]')"
     
-    if [[ "${HOSTIP}" != "${IPADDR}" ]]; then
-	echo "Edit hosts"
-	#exit 1
-    fi
-    local GETENT="$(getent hosts $(hostname))"
-    echo ${HOSTSLINE}
-    echo ${GETENT}
-    if [[ ${HOSTSLINE} == ${GETENT} ]]; then
-	echo "Getent successful"
-    else
-	echo "Getent failed"
+    if [[ "${HOSTIP}" != "${IPADDR}" ]] || [[ ${HOSTSLINE} != ${GETENT} ]]; then
+	sed -i /${HOSTSIP}*/d /etc/hosts &&
+	    echo "${IPADDR} ${LCHOSTNAME}.${LCREALM} ${LCHOSTNAME}" >> /etc/hosts ||
+		exit 1
     fi
     
     
@@ -257,8 +371,7 @@ function joindomain () {
 #
 # ======================================================================
 function startservice () {
-    sudo systemctl start winbind
-    sudo systemctl start nmbd
+    sudo systemctl start smbd nmbd winbind
 }
 
 # ======================================================================
@@ -284,7 +397,23 @@ verifysetup () {
 #
 # ======================================================================
 function installsmb () {
-    apt install samba libnss-winbind libpam-winbind krb5-user libpam-krb5
+    local ROLE=$1
+
+    
+    case $ROLE in
+	pdc|adddc)
+	    read -p "Use Bind9 Dns? (Y/N): " confirm &&
+	    	[[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] && PKGS="bind9"
+	    PKGS="winbind libpam-winbind libnss-winbind ${PKGS}"
+	    PKGS="libpam-krb5 krb5-config krb5-user ${PKGS}"
+	    PKGS="unison rsync ${PKGS}"
+	    ;;
+	*)
+	    PKGS=""
+	    ;;
+    esac
+    apt install samba ${PKGS}
+    
 }
 
 # ======================================================================
@@ -294,26 +423,35 @@ function installsmb () {
 # Stops all active running samba processes.
 #
 # ======================================================================
-function isbind9installed () {
-    echo -ne "true"
+function getdnsserver () {
+    if command -v named ; then
+	echo -ne "BIND9_DLZ"
+    else
+	echo -ne "SAMBA_INTERNAL"
+    fi
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function provisiondomain () {
     local REALM=$(getrealm)
     local DOMAIN=$(echo ${REALM} | cut -d. -f1)
-    local DNS
+    local DNS=$(getdnsserver)
     local ADMPASS
-    local PRVTDIR
-    local KRB5CONF
+    local PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
+    local KRB5CONF="${PRVTDIR}/krb5.conf"
     local LCREALM=$(echo ${REALM}|tr A-Z a-z)
     local HOSTNAME=$(hostname|tr A-Z a-z)
 
     read -p "Enter your desired Administrator password: " ADMPASS
-    [[ "$(isbind9installed)" == "true" ]] && DNS="BIND9_DLZ" || DNS="SAMBA_INTERNAL"
 
     echo ${DNS}
-    sleep 10
-
+    sleep 5
 
     sudo samba-tool \
 	 domain provision \
@@ -324,19 +462,32 @@ function provisiondomain () {
 	 --domain=${DOMAIN} \
 	 --adminpass=${ADMPASS}
 
-    PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
-    KRB5CONF="${PRVTDIR}/krb5.conf"
-
     sudo cp ${KRB5CONF} /etc/
 }
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function startdc () {
     echo "Starting Samba AD DC"
     sudo systemctl start samba-ad-dc &&
     sleep 5
 }    
 
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function verifydomain () {
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM} | cut -d. -f1)
     local LCREALM=$(echo ${REALM}|tr A-Z a-z)
     local HOSTNAME=$(hostname|tr A-Z a-z)
 
@@ -353,6 +504,16 @@ function verifydomain () {
 
     kinit administrator
     klist
+
+}
+
+function adddcalias () {
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM} | cut -d. -f1)
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    local HOSTNAME=$(hostname|tr A-Z a-z)
+
+    samba-tool dns add localhost ${LCREALM} dc1 CNAME ${HOSTNAME} -U Administrator
 }
 
 # ======================================================================
@@ -362,9 +523,269 @@ function verifydomain () {
 # Stops all active running samba processes.
 #
 # ======================================================================
+function provisionsecondarydc () {
+    local $DNS=$1
+
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM} | cut -d. -f1)
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    local HOSTNAME=$(hostname|tr A-Z a-z)
+
+    read -p "Enter your desired Administrator password: " ADMPASS
+
+    echo ${DNS}
+    sleep 5
+
+    sudo samba-tool \
+	 domain join \
+	 ${LCREALM} DC \
+	 -U"${DOMAIN}\administrator" \
+	 --dns-backend=${DNS} \
+	 --option='idmap_ldb:use rfc2307 = yes'
+
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function setupbind9 () {
+    local PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
+
+    # First check this hasn't already been done
+    if ! grep -q ${PRVTDIR} /etc/bind/named.conf ; then
+	echo "include \"${PRVTDIR}/named.conf\";" >> /etc/bind/named.conf
+    fi
+
+    # Somehow add
+    #options {
+    #[...]
+    #tkey-gssapi-keytab "/usr/local/samba/private/dns.keytab";
+    #[...]
+    #};
+    
+    # Ensure the correct permissions are set
+    chmod 640 ${PRVTDIR}/dns.keytab
+    chown root:named ${PRVTDIR}/dns.keytab
+    
+    if ! command -v nsupdate ; then
+	sudo apt install dnsutils
+    fi
+
+    # Verify we have a good bind config files
+    if ! $(command -v named-checkconf) ; then
+	echo "Bind 9 Configuration files are broken"
+	exit 1
+    fi
+
+    return 0
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#de
+# ======================================================================
+function verifykrb5 () {
+    kinit administrator
+    klist
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#de
+# ======================================================================
+function setupsysvolrep () {
+    local PDC=dc1
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM} | cut -d. -f1)
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    local HOSTNAME=$(hostname|tr A-Z a-z)
+
+
+    local STDIR="$(smbd -b | egrep "STATEDIR"|cut -d: -f2|cut -d\  -f2)"
+    local PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
+    local SYNCLOG="/var/log/samba/sysvol-sync.log "
+
+
+    local RSYNC="$(command -v rsync)"
+    local UNISON="$(command -v unison)"
+
+    ssh dc1 bash -c'
+    DC1PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
+    tdbbackup -s .bak ${PRVTDIR}/idmap.ldb
+    scp ${DC1PRVTDIR}/idmap.ldb.bak ${HOSTNAME}:${PRVTDIR}/idmap.ldb
+    '
+
+    samba-tool ntacl sysvolreset
+    
+    mkdir ~/.ssh/ctl
+    cat << EOF > ~/.ssh/ctl/config 
+Host * 
+ControlMaster auto 
+ControlPath ~/.ssh/ctl/%h_%p_%r 
+ControlPersist 1 
+EOF
+
+    ssh dc1 bash -c'
+    DC1RSYNC="$(command -v rsync)"
+    DC1UNISON="$(command -v unison)"
+    DC1STDIR="$(smbd -b | egrep "STATEDIR"|cut -d: -f2|cut -d\  -f2)"
+    DC1PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
+    touch ${SYNCLOG}
+    chmod 640 ${SYNCLOG}
+
+    install -o root -g root -m 0750 -d /root/.unison
+    '
+    cat << EOF > dc1:/root/.unison/default.prf 
+# Unison preferences file 
+# Roots of the synchronization 
+# 
+# copymax & maxthreads params were set to 1 for easier troubleshooting. 
+# Have to experiment to see if they can be increased again. 
+root = ${DC1STDIR}
+# Note that 2 x / behind DC2, it is required 
+root = ssh://root@DC2/${STDIR} 
+# 
+# Paths to synchronize 
+path = sysvol 
+# 
+#ignore = Path stats ## ignores /var/www/stats 
+auto=true 
+batch=true 
+perms=0 
+rsync=true 
+maxthreads=1
+retry=3 
+confirmbigdeletes=false 
+servercmd=${DC1UNISON}
+copythreshold=0 
+copyprog = ${DC1RSYNC} -XAavz --rsh="ssh -p 22" --inplace --compress 
+copyprogrest = ${DC1RSYNC} -XAavz --rsh="ssh -p 22" --partial --inplace --compress 
+copyquoterem = true 
+copymax = 1 
+logfile = ${SYNCLOG}
+EOF
+
+        ssh dc1 bash -c'
+ssh ${HOSTNAME} "cp -R --preserve=all ${DC1STDIR}/sysvol ${STDIR}"
+
+CRONCMD="${DC1RSYNC} -XAavz --log-file ${SYNCLOG} --delete-after -f\"+ */\" -f\"- *\"  ${DC1STDIR}/sysvol  root@${HOSTNAME}:${STDIR} && /usr/bin/unison &> /dev/null
+
+# First test
+${CRONCMD}
+
+#Add to Crontab
+CRONJOB="0/5 * * * * $CRONCMD"
+( crontab -l | grep -v -F "$croncmd" ; echo "$cronjob" ) | crontab -
+'
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function verifysysvolrep () {
+    samba-tool drs showrepl
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function verifyadddc () {
+    local REALM=$(getrealm)
+    local LCREALM=$(echo ${REALM}|tr A-Z a-z)
+    host -t A ${LCREALM} localhost
+
+    kinit administrator
+    klist
+
+    for PART in domain configuratin schema dnsdomain dnsforest
+    do
+	case $PART in
+	    configuration)
+		FILTER=msDS-NcType,serverState,subrefs
+		;;
+	    *)
+		FILTER=msDS-NcType,serverState
+		;;
+	esac
+	samba-tool ldapcmp ldap://DC1 ldap://DC2 -Uadministrator ${PART} --filter=${FILTER}
+    done
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function setupusers () {
+    addsmbuser
+    ldbmodify -H /usr/local/samba/private/sam.ldb /tmp/user.ldif -U Administrator
+    ldbmodify -H /usr/local/samba/private/sam.ldb /tmp/group.ldif -U Administrator
+    ldbmodify -H /usr/local/samba/private/sam.ldb /tmp/computer.ldif -U Administrator
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function setupdomain () {
+    local DNS=$(getdnsserver)
+    if [[ "${DNS}" == "BIND9_DLZ" ]]; then
+	setupbind9
+    fi
+
     provisiondomain
     startdc
+    if [[ "${DNS}" == "BIND9_DLZ" ]]; then
+	systemctl start bind9
+    fi
+
+    verifydomain
+    setupusers
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
+function setupadddc () {
+    local DNS=$(getdnsserver)
+    if [[ "${DNS}" == "BIND9_DLZ" ]]; then
+	setupbind9
+    fi
+    createkrb5conf &&
+    verifykrb5 &&
+    provisionsecondarydc $DNS
+    #setupsysvolrep
+    startdc
+    verifysysvolrep
+    if [[ "${DNS}" == "BIND9_DLZ" ]]; then
+	systemctl start bind9
+    fi    
     verifydomain
 }
 
@@ -425,20 +846,27 @@ function main() {
 	esac
     done
     
-    installsmb
-    stopprocs
+    installsmb ${ROLE}
+    stopprocs ${ROLE}
     removeconf
     cleardirs
     verifyhost
-    
+    exit 1
     case $ROLE in
 	pdc)
 	    setupdomain
 	    ;;
 	dc)
-	    adddc
+	    setupadddc
 	    ;;
-	fileserver|member)
+	fileserver)
+	    setupmember
+	    aclsmbconf
+	    net rpc rights grant "SAMDOM\Domain Admins" SeDiskOperatorPrivilege -U "SAMDOM\administrator"
+	    net rpc rights list privileges SeDiskOperatorPrivilege -U "SAMDOM\administrator"
+	    
+	    ;;
+	member)
 	    setupmember
 	    ;;
 	esac
