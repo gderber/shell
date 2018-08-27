@@ -775,7 +775,7 @@ function setupdomain () {
 function setupadddc () {
     local DNS=$(getdnsserver)
     if [[ "${DNS}" == "BIND9_DLZ" ]]; then
-	setupbind9
+        setupbind9
     fi
     createkrb5conf &&
     verifykrb5 &&
@@ -784,8 +784,8 @@ function setupadddc () {
     startdc
     verifysysvolrep
     if [[ "${DNS}" == "BIND9_DLZ" ]]; then
-	systemctl start bind9
-    fi    
+        systemctl start bind9
+    fi
     verifydomain
 }
 
@@ -815,37 +815,37 @@ function setupmember () {
 # ======================================================================
 function main() {
     local ROLE
-    
+
     while [[ -n $1 ]];
     do
-	case $1 in
-	    --pdc)
-		ROLE=pdc
-		shift 1
-		;;
-	    --dc)
-		ROLE=dc
-		shift 1
-		;;
-	    --fs)
-		ROLE=fileserver
-		shift 1
-		;;
-	    --mbr)
-		ROLE=member
-		shift 1
-		;;
-	    -h|--help)
-		__help
-		exit
-		;;
-	    *)
-		__help
-		exit 1
-		;;
-	esac
+        case $1 in
+            --pdc)
+                ROLE=pdc
+                shift 1
+                ;;
+            --dc)
+                ROLE=dc
+                shift 1
+                ;;
+            --fs)
+                ROLE=fileserver
+                shift 1
+                ;;
+            --mbr)
+                ROLE=member
+                shift 1
+                ;;
+            -h|--help)
+                __help
+                exit
+                ;;
+            *)
+                __help
+                exit 1
+                ;;
+        esac
     done
-    
+
     installsmb ${ROLE}
     stopprocs ${ROLE}
     removeconf
@@ -853,23 +853,25 @@ function main() {
     verifyhost
     exit 1
     case $ROLE in
-	pdc)
-	    setupdomain
-	    ;;
-	dc)
-	    setupadddc
-	    ;;
-	fileserver)
-	    setupmember
-	    aclsmbconf
-	    net rpc rights grant "SAMDOM\Domain Admins" SeDiskOperatorPrivilege -U "SAMDOM\administrator"
-	    net rpc rights list privileges SeDiskOperatorPrivilege -U "SAMDOM\administrator"
-	    
-	    ;;
-	member)
-	    setupmember
-	    ;;
-	esac
+        pdc)
+            setupdomain
+            ;;
+        dc)
+            setupadddc
+            ;;
+        fileserver)
+            setupmember
+            aclsmbconf
+            net rpc rights grant "${DOMAIN}\Domain Admins" \
+                SeDiskOperatorPrivilege -U "${DOMAIN}\administrator"
+            net rpc rights list privileges SeDiskOperatorPrivilege \
+                -U "${DOMAIN}\administrator"
+
+            ;;
+        member)
+            setupmember
+            ;;
+    esac
 
 }
 
