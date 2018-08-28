@@ -32,7 +32,7 @@ function stopprocs () {
     local ACTIVE_PROCS=$(ps ax | egrep "samba|smbd|nmbd|winbindd"|grep -v grep|cut -d/ -f4 |cut -d\  -f1|sort -u)
 
     if [[ "${ROLE}" == "pdc" ]] || [[ "${ROLE}" == "adddc" ]]; then
-        local DNS=${getdnsserver)
+        local DNS=${getdnsserver}
         if [[ "${DNS}" == "BIND9_DLZ" ]]; then
             sudo systemctl stop bind9
         fi
