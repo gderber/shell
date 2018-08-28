@@ -541,8 +541,6 @@ function provisionsecondarydc () {
     local LCREALM=$(echo ${REALM}|tr A-Z a-z)
     local HOSTNAME=$(hostname|tr A-Z a-z)
 
-    read -p "Enter your desired Administrator password: " ADMPASS
-
     echo ${DNS}
     sleep 5
 
