@@ -837,7 +837,7 @@ function setupsmb () {
     removeconf
     cleardirs
     verifyhost
-    exit 1
+
     case $ROLE in
         pdc)
             setupdomain
