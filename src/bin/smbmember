@@ -827,6 +827,47 @@ function setupmember () {
 # Stops all active running samba processes.
 #
 # ======================================================================
+function setupsmb () {
+    ROLE=$1
+    local REALM=$(getrealm)
+    local DOMAIN=$(echo ${REALM} | cut -d. -f1)
+
+    installsmb ${ROLE}
+    stopprocs ${ROLE}
+    removeconf
+    cleardirs
+    verifyhost
+    exit 1
+    case $ROLE in
+        pdc)
+            setupdomain
+            ;;
+        dc)
+            setupadddc
+            ;;
+        fileserver)
+            setupmember
+            aclsmbconf
+            net rpc rights grant "${DOMAIN}\Domain Admins" \
+                SeDiskOperatorPrivilege -U "${DOMAIN}\administrator"
+            net rpc rights list privileges SeDiskOperatorPrivilege \
+                -U "${DOMAIN}\administrator"
+
+            ;;
+        member)
+            setupmember
+            ;;
+    esac
+
+}
+
+# ======================================================================
+#
+# stopprocs
+#
+# Stops all active running samba processes.
+#
+# ======================================================================
 function main() {
     local ROLE
 
@@ -860,32 +901,7 @@ function main() {
         esac
     done
 
-    installsmb ${ROLE}
-    stopprocs ${ROLE}
-    removeconf
-    cleardirs
-    verifyhost
-    exit 1
-    case $ROLE in
-        pdc)
-            setupdomain
-            ;;
-        dc)
-            setupadddc
-            ;;
-        fileserver)
-            setupmember
-            aclsmbconf
-            net rpc rights grant "${DOMAIN}\Domain Admins" \
-                SeDiskOperatorPrivilege -U "${DOMAIN}\administrator"
-            net rpc rights list privileges SeDiskOperatorPrivilege \
-                -U "${DOMAIN}\administrator"
-
-            ;;
-        member)
-            setupmember
-            ;;
-    esac
+    setupsmb ${ROLE}
 
 }
 
