@@ -45,15 +45,15 @@ function stopprocs () {
                 sudo systemctl stop winbind
                 ;;
             *mbd)
-		sudo systemctl stop ${PROC}
-		;;
-	    samba)
-		sudo systemctl stop samba-ad-dc
-		;;
-	    *)
-		exit 1
-		;;
-	esac 
+                sudo systemctl stop ${PROC}
+                ;;
+            samba)
+                sudo systemctl stop samba-ad-dc
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
     done
 
 }
@@ -100,7 +100,7 @@ function getrealm () {
     local REALM=$(domainname -d)
 
     if [[ ! -n ${REALM} ]]; then
-	read -p "What is the realm name" REALM
+        read -p "What is the realm name" REALM
     fi
     REALM="$(echo ${REALM}|tr a-z A-Z)"
     echo -ne "${REALM}"
@@ -117,15 +117,15 @@ function createkrb5conf () {
     local REALM=$(getrealm)
     local DOMAIN=$(echo ${REALM}|cut -d. -f1)
     sudo cat << KRB5CONF > /etc/krb5.conf
-[libdefaults] 
+[libdefaults]
      default_realm = ${REALM}
-     dns_lookup_realm = false 
-     dns_lookup_kdc = true 
+     dns_lookup_realm = false
+     dns_lookup_kdc = true
 
 [realms]
     ${REALM} = {
         auth_to_local = RULE:[1:${DOMAIN}\\\$1]
-    } 
+    }
 KRB5CONF
 }
 
@@ -143,50 +143,60 @@ function createsmbconf () {
     sudo cat << SMBCONF > /etc/samba/smb.conf
 # ======================================================================
 #
-# 
+# Samba Configuration File
 #
 # ======================================================================
 [global]
-netbios name = $(hostname| tr a-z A-Z)
-workgroup = ${DOMAIN}
-realm = ${REALM}
-security = ADS
+  netbios name = $(hostname| tr a-z A-Z)
+  workgroup = ${DOMAIN}
+  realm = ${REALM}
+  security = ADS
 
 # Logging
-max log size = 1000
-log file = /var/log/samba/log.%m
-log level = 1 passdb:10 winbind:10 idmap:10
+  max log size = 1000
+  log file = /var/log/samba/log.%m
+  log level = 1 passdb:10 winbind:10 idmap:10
 
+# ======================================================================
+#
+# User Settings
+#
+# ======================================================================
+  username map = /etc/samba/users.map
 
-######## User Settings #######
-username map = /etc/samba/users.map
+# Idmap Settings
 # idmap config for ...
-idmap config * : backend = tdb
-idmap config * : range = 3000-7999
+  idmap config * : backend = tdb
+  idmap config * : range = 3000-7999
 # idmap config for ${DOMAIN} domain
-idmap config ${DOMAIN} : backend = ad
-idmap config ${DOMAIN} : schema_mode = rfc2307
-idmap config ${DOMAIN} : range = 100000-99999999
-idmap config ${DOMAIN} : unix_nss_info = yes
-idmap config ${DOMAIN} : unix_primary_group = yes
+  idmap config ${DOMAIN} : backend = ad
+  idmap config ${DOMAIN} : schema_mode = rfc2307
+  idmap config ${DOMAIN} : range = 100000-99999999
+  idmap config ${DOMAIN} : unix_nss_info = yes
+  idmap config ${DOMAIN} : unix_primary_group = yes
 
-######## Winbind ###########
-template shell = /bin/bash
+# Winbind Settings
+  template shell = /bin/bash
 # template home = /home/%D/%U
-#winbind trusted domains only = no
-#winbind use default domain = yes
-winbind enum users = yes
-winbind enum groups = yes
-winbind refresh tickets = Yes 
+  #winbind trusted domains only = no
+  #winbind use default domain = yes
+  winbind enum users = yes
+  winbind enum groups = yes
+  winbind refresh tickets = Yes
 
-####### Enable ACL Support ######
-vfs objects = acl_xattr
-map acl inherit = yes
-store dos attributes = yes
+# ======================================================================
+#
+# Misc
+#
+# ======================================================================
+# Enable ACK Support
+  vfs objects = acl_xattr
+  map acl inherit = yes
+  store dos attributes = yes
 
 # Used for SSH Single Sign On
-dedicated keytab file = /etc/krb5.keytab
-kerberos method = secrets and keytab
+  dedicated keytab file = /etc/krb5.keytab
+  kerberos method = secrets and keytab
 
 
 # ======================================================================
@@ -196,12 +206,12 @@ kerberos method = secrets and keytab
 # ======================================================================
 
 [netlogon]
-        path = /var/lib/samba/sysvol/${LCREALM}/scripts
-        read only = No
+  path = /var/lib/samba/sysvol/${LCREALM}/scripts
+  read only = No
 
 [sysvol]
-        path = /var/lib/samba/sysvol
-        read only = No
+  path = /var/lib/samba/sysvol
+  read only = No
 
 SMBCONF
 
@@ -217,42 +227,44 @@ SMBCONF
 function fssmbconf () {
     cat << FSSMBCONF >> /etc/samba/smb.conf
 [profiles]
-	comment = Users profiles
-	path = /srv/samba/profiles/
-	read only = No
+  comment = Users profiles
+  path = /srv/samba/profiles/
+  read only = No
 
 # H:
 [users]
-	path = /home
-	read only = no
+  path = /home
+  read only = no
 
 # A:
 [Applications]
-	path = /srv/samba/share/applications
+  path = /srv/samba/share/applications
+  read only = no
+
 # B:
 [Books]
-	path = /srv/samba/shares/books
-	read only = no
+  path = /srv/samba/shares/books
+  read only = no
 
 # I:
-[ISO Files]
-     path = /srv/samba/shares/iso_files
-     read only = no
+[ISO_Files]
+  path = /srv/samba/shares/iso_files
+  read only = no
 
 # M:
 [Music]
-	path = /srv/samba/shares/music
-	read only = no
+  path = /srv/samba/shares/music
+  read only = no
 
 # P:
 [Pictures]
-	path = /srv/samba/shares/pictures
-	read only = no
+  path = /srv/samba/shares/pictures
+  read only = no
 
 # V:
 [Videos]
-	path = /srv/samva/shares/videos
-	read only = no
+  path = /srv/samva/shares/videos
+  read only = no
 
 FSSMBCONF
 }
@@ -287,7 +299,7 @@ function tlssmbconf () {
     winbind enum groups = yes \
     \n' /etc/samba/smb.conf
 
-} 
+}
 
 # ======================================================================
 #
@@ -304,12 +316,12 @@ function aclsmbconf () {
     local HOSTNAME=$(hostname|tr A-Z a-z)
 
     sed -i '|winbind enum groups = yes|i \
-    vfs objects = acl_xattr \ 
+    vfs objects = acl_xattr \
     map acl inherit = yes \
     store dos attributes = yes  \
     \n' /etc/samba/smb.conf
 
-} 
+}
 
 # ======================================================================
 #
@@ -327,14 +339,13 @@ function verifyhost () {
     local LCHOSTNAME=$(hostname|tr A-Z a-z)
     local GETENT="$(getent hosts $(hostname) | tr -d '[:space:]')"
     HOSTSLINE="$(echo ${HOSTSLINE} | tr -d '[:space:]')"
-    
+
     if [[ "${HOSTIP}" != "${IPADDR}" ]] || [[ ${HOSTSLINE} != ${GETENT} ]]; then
-	sed -i /${HOSTSIP}*/d /etc/hosts &&
-	    echo "${IPADDR} ${LCHOSTNAME}.${LCREALM} ${LCHOSTNAME}" >> /etc/hosts ||
-		exit 1
+        sed -i /${HOSTSIP}*/d /etc/hosts &&
+            echo "${IPADDR} ${LCHOSTNAME}.${LCREALM} ${LCHOSTNAME}" >> /etc/hosts ||
+                exit 1
     fi
-    
-    
+
 }
 
 # ======================================================================
@@ -383,9 +394,9 @@ function startservice () {
 # ======================================================================
 verifysetup () {
     wbinfo --ping-dc &&
-	sleep 10 &&
-	getent passwd &&
-	sleep 10 &&
+        sleep 10 &&
+        getent passwd &&
+        sleep 10 &&
         getent group
 }
 
@@ -399,21 +410,20 @@ verifysetup () {
 function installsmb () {
     local ROLE=$1
 
-    
     case $ROLE in
-	pdc|adddc)
-	    read -p "Use Bind9 Dns? (Y/N): " confirm &&
-	    	[[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] && PKGS="bind9"
-	    PKGS="winbind libpam-winbind libnss-winbind ${PKGS}"
-	    PKGS="libpam-krb5 krb5-config krb5-user ${PKGS}"
-	    PKGS="unison rsync ${PKGS}"
-	    ;;
-	*)
-	    PKGS=""
-	    ;;
+        pdc|adddc)
+            read -p "Use Bind9 Dns? (Y/N): " confirm &&
+                [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] &&
+                PKGS="bind9"
+            PKGS="winbind libpam-winbind libnss-winbind ${PKGS}"
+            PKGS="libpam-krb5 krb5-config krb5-user ${PKGS}"
+            PKGS="unison rsync ${PKGS}"
+            ;;
+        *)
+            PKGS=""
+            ;;
     esac
     apt install samba ${PKGS}
-    
 }
 
 # ======================================================================
@@ -425,9 +435,9 @@ function installsmb () {
 # ======================================================================
 function getdnsserver () {
     if command -v named ; then
-	echo -ne "BIND9_DLZ"
+        echo -ne "BIND9_DLZ"
     else
-	echo -ne "SAMBA_INTERNAL"
+        echo -ne "SAMBA_INTERNAL"
     fi
 }
 
@@ -454,13 +464,13 @@ function provisiondomain () {
     sleep 5
 
     sudo samba-tool \
-	 domain provision \
-	 --server-role=dc \
-	 --use-rfc2307 \
-	 --dns-backend=${DNS} \
-	 --realm=${REALM} \
-	 --domain=${DOMAIN} \
-	 --adminpass=${ADMPASS}
+         domain provision \
+         --server-role=dc \
+         --use-rfc2307 \
+         --dns-backend=${DNS} \
+         --realm=${REALM} \
+         --domain=${DOMAIN} \
+         --adminpass=${ADMPASS}
 
     sudo cp ${KRB5CONF} /etc/
 }
@@ -476,7 +486,7 @@ function startdc () {
     echo "Starting Samba AD DC"
     sudo systemctl start samba-ad-dc &&
     sleep 5
-}    
+}
 
 # ======================================================================
 #
@@ -537,11 +547,11 @@ function provisionsecondarydc () {
     sleep 5
 
     sudo samba-tool \
-	 domain join \
-	 ${LCREALM} DC \
-	 -U"${DOMAIN}\administrator" \
-	 --dns-backend=${DNS} \
-	 --option='idmap_ldb:use rfc2307 = yes'
+         domain join \
+         ${LCREALM} DC \
+         -U"${DOMAIN}\administrator" \
+         --dns-backend=${DNS} \
+         --option='idmap_ldb:use rfc2307 = yes'
 
 }
 
@@ -557,7 +567,7 @@ function setupbind9 () {
 
     # First check this hasn't already been done
     if ! grep -q ${PRVTDIR} /etc/bind/named.conf ; then
-	echo "include \"${PRVTDIR}/named.conf\";" >> /etc/bind/named.conf
+        echo "include \"${PRVTDIR}/named.conf\";" >> /etc/bind/named.conf
     fi
 
     # Somehow add
@@ -566,19 +576,19 @@ function setupbind9 () {
     #tkey-gssapi-keytab "/usr/local/samba/private/dns.keytab";
     #[...]
     #};
-    
+
     # Ensure the correct permissions are set
     chmod 640 ${PRVTDIR}/dns.keytab
     chown root:named ${PRVTDIR}/dns.keytab
-    
+
     if ! command -v nsupdate ; then
-	sudo apt install dnsutils
+        sudo apt install dnsutils
     fi
 
     # Verify we have a good bind config files
     if ! $(command -v named-checkconf) ; then
-	echo "Bind 9 Configuration files are broken"
-	exit 1
+        echo "Bind 9 Configuration files are broken"
+        exit 1
     fi
 
     return 0
@@ -611,82 +621,82 @@ function setupsysvolrep () {
     local HOSTNAME=$(hostname|tr A-Z a-z)
 
 
-    local STDIR="$(smbd -b | egrep "STATEDIR"|cut -d: -f2|cut -d\  -f2)"
-    local PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
+    local STDIR="$(smbd -b | egrep STATEDIR|cut -d: -f2|cut -d\  -f2)"
+    local PRVTDIR="$(smbd -b | egrep PRIVATE_DIR|cut -d: -f2|cut -d\  -f2)"
     local SYNCLOG="/var/log/samba/sysvol-sync.log "
 
 
     local RSYNC="$(command -v rsync)"
     local UNISON="$(command -v unison)"
 
-    ssh dc1 bash -c'
-    DC1PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
-    tdbbackup -s .bak ${PRVTDIR}/idmap.ldb
-    scp ${DC1PRVTDIR}/idmap.ldb.bak ${HOSTNAME}:${PRVTDIR}/idmap.ldb
-    '
+    #ssh dc1 bash -c'
+    #DC1PRVTDIR="$(smbd -b | egrep PRIVATE_DIR|cut -d: -f2|cut -d\  -f2)"
+    #tdbbackup -s .bak ${PRVTDIR}/idmap.ldb
+    #scp ${DC1PRVTDIR}/idmap.ldb.bak ${HOSTNAME}:${PRVTDIR}/idmap.ldb
+    #'
 
-    samba-tool ntacl sysvolreset
-    
-    mkdir ~/.ssh/ctl
-    cat << EOF > ~/.ssh/ctl/config 
-Host * 
-ControlMaster auto 
-ControlPath ~/.ssh/ctl/%h_%p_%r 
-ControlPersist 1 
-EOF
+    #samba-tool ntacl sysvolreset
 
-    ssh dc1 bash -c'
-    DC1RSYNC="$(command -v rsync)"
-    DC1UNISON="$(command -v unison)"
-    DC1STDIR="$(smbd -b | egrep "STATEDIR"|cut -d: -f2|cut -d\  -f2)"
-    DC1PRVTDIR="$(smbd -b | egrep "PRIVATE_DIR"|cut -d: -f2|cut -d\  -f2)"
-    touch ${SYNCLOG}
-    chmod 640 ${SYNCLOG}
+    #mkdir ~/.ssh/ctl
+    #cat << EOF > ~/.ssh/ctl/config
+#Host *
+#ControlMaster auto
+#ControlPath ~/.ssh/ctl/%h_%p_%r
+#ControlPersist 1
+#EOF
 
-    install -o root -g root -m 0750 -d /root/.unison
-    '
-    cat << EOF > dc1:/root/.unison/default.prf 
-# Unison preferences file 
-# Roots of the synchronization 
-# 
-# copymax & maxthreads params were set to 1 for easier troubleshooting. 
-# Have to experiment to see if they can be increased again. 
-root = ${DC1STDIR}
-# Note that 2 x / behind DC2, it is required 
-root = ssh://root@DC2/${STDIR} 
-# 
-# Paths to synchronize 
-path = sysvol 
-# 
-#ignore = Path stats ## ignores /var/www/stats 
-auto=true 
-batch=true 
-perms=0 
-rsync=true 
-maxthreads=1
-retry=3 
-confirmbigdeletes=false 
-servercmd=${DC1UNISON}
-copythreshold=0 
-copyprog = ${DC1RSYNC} -XAavz --rsh="ssh -p 22" --inplace --compress 
-copyprogrest = ${DC1RSYNC} -XAavz --rsh="ssh -p 22" --partial --inplace --compress 
-copyquoterem = true 
-copymax = 1 
-logfile = ${SYNCLOG}
-EOF
+#    ssh dc1 bash -c'
+#    DC1RSYNC="$(command -v rsync)"
+#    DC1UNISON="$(command -v unison)"
+#    DC1STDIR="$(smbd -b | egrep STATEDIR|cut -d: -f2|cut -d\  -f2)"
+#    DC1PRVTDIR="$(smbd -b | egrep PRIVATE_DIR|cut -d: -f2|cut -d\  -f2)"
+#    touch ${SYNCLOG}
+#    chmod 640 ${SYNCLOG}
 
-        ssh dc1 bash -c'
-ssh ${HOSTNAME} "cp -R --preserve=all ${DC1STDIR}/sysvol ${STDIR}"
+#    install -o root -g root -m 0750 -d /root/.unison
+#    '
+#    cat << EOF > dc1:/root/.unison/default.prf
+# Unison preferences file
+# Roots of the synchronization
+#
+# copymax & maxthreads params were set to 1 for easier troubleshooting.
+# Have to experiment to see if they can be increased again.
+#root = ${DC1STDIR}
+# Note that 2 x / behind DC2, it is required
+#root = ssh://root@dc2/${STDIR}
+#
+# Paths to synchronize
+#path = sysvol
+#
+#ignore = Path stats ## ignores /var/www/stats
+#auto=true
+#batch=true
+#perms=0
+#rsync=true
+#maxthreads=1
+#retry=3
+#confirmbigdeletes=false
+#servercmd=${DC1UNISON}
+#copythreshold=0
+#copyprog = ${DC1RSYNC} -XAavz --rsh="ssh -p 22" --inplace --compress
+#copyprogrest = ${DC1RSYNC} -XAavz --rsh="ssh -p 22" --partial --inplace --compress
+#copyquoterem = true
+#copymax = 1
+#logfile = ${SYNCLOG}
+#EOF
 
-CRONCMD="${DC1RSYNC} -XAavz --log-file ${SYNCLOG} --delete-after -f\"+ */\" -f\"- *\"  ${DC1STDIR}/sysvol  root@${HOSTNAME}:${STDIR} && /usr/bin/unison &> /dev/null
+#        ssh dc1 bash -c'
+#ssh ${HOSTNAME} "cp -R --preserve=all ${DC1STDIR}/sysvol ${STDIR}"
+
+#CRONCMD="${DC1RSYNC} -XAavz --log-file ${SYNCLOG} --delete-after -f\"+ */\" -f\"- *\"  ${DC1STDIR}/sysvol  root@${HOSTNAME}:${STDIR} && /usr/bin/unison &> /dev/null
 
 # First test
-${CRONCMD}
+#${CRONCMD}
 
 #Add to Crontab
-CRONJOB="0/5 * * * * $CRONCMD"
-( crontab -l | grep -v -F "$croncmd" ; echo "$cronjob" ) | crontab -
-'
+#CRONJOB="0/5 * * * * $CRONCMD"
+#( crontab -l | grep -v -F "$croncmd" ; echo "$cronjob" ) | crontab -
+#'
 }
 
 # ======================================================================
@@ -717,15 +727,18 @@ function verifyadddc () {
 
     for PART in domain configuratin schema dnsdomain dnsforest
     do
-	case $PART in
-	    configuration)
-		FILTER=msDS-NcType,serverState,subrefs
-		;;
-	    *)
-		FILTER=msDS-NcType,serverState
-		;;
-	esac
-	samba-tool ldapcmp ldap://DC1 ldap://DC2 -Uadministrator ${PART} --filter=${FILTER}
+        case $PART in
+            configuration)
+                FILTER=msDS-NcType,serverState,subrefs
+                ;;
+            *)
+                FILTER=msDS-NcType,serverState
+                ;;
+        esac
+        samba-tool ldapcmp \
+                   ldap://DC1 ldap://DC2 \
+                   -Uadministrator ${PART} \
+                   --filter=${FILTER}
     done
 }
 
@@ -741,24 +754,25 @@ function setupusers () {
     ldbmodify -H /usr/local/samba/private/sam.ldb /tmp/user.ldif -U Administrator
     ldbmodify -H /usr/local/samba/private/sam.ldb /tmp/group.ldif -U Administrator
     ldbmodify -H /usr/local/samba/private/sam.ldb /tmp/computer.ldif -U Administrator
+}
 
 # ======================================================================
 #
-# stopprocs
+# setupdomain
 #
-# Stops all active running samba processes.
+# ...
 #
 # ======================================================================
 function setupdomain () {
     local DNS=$(getdnsserver)
     if [[ "${DNS}" == "BIND9_DLZ" ]]; then
-	setupbind9
+        setupbind9
     fi
 
     provisiondomain
     startdc
     if [[ "${DNS}" == "BIND9_DLZ" ]]; then
-	systemctl start bind9
+        systemctl start bind9
     fi
 
     verifydomain
@@ -767,7 +781,7 @@ function setupdomain () {
 
 # ======================================================================
 #
-# stopprocs
+# setupadddc
 #
 # Stops all active running samba processes.
 #
