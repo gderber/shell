@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Sep  7 15:26:08 2018 (-0400)
+# Last-Updated: Fri Sep  7 18:10:15 2018 (-0400)
 #           By: Geoff S Derber
-#     Update #: 6
+#     Update #: 9
 # URL: 
 # Doc URL: 
 # Keywords: 
@@ -54,13 +54,20 @@
 #
 # ======================================================================
 # Commands
+
+if ping -c1 git > /dev/null; then
+    REPO="--all"
+else
+    REPO="github master"
+fi
+
 CURL=$(command -v curl)
 SH=$(command -v sh)
 GRIVE=$(command -v grive)
 ONEDRIVE=$(command -v onedrive)
 GIT=$(command -v git)
-FETCH="${GIT} fetch --all"
-PULL="${GIT} pull --all"
+FETCH="${GIT} fetch ${REPO}"
+PULL="${GIT} pull ${REPO}"
 
 # Dirrctory
 DOTFILESSH_URL=https://gderber.github.io/dotfiles.sh
