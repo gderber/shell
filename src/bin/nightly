@@ -1,11 +1,59 @@
 #!/bin/bash
-# ======================
+# ======================================================================
 #
-# Nightly
+# nightly ---
 #
-# ....
+# Filename: nightly
+# Description: Performs nightly tasks
+# Author: Geoff S Derber
+# Maintainer: Geoff S Derber
+# Created: Fri Sep  7 15:05:43 2018 (-0400)
+# Version: 0.0.2
+# Package-Requires: ()
+# Last-Updated: Fri Sep  7 15:26:08 2018 (-0400)
+#           By: Geoff S Derber
+#     Update #: 6
+# URL: 
+# Doc URL: 
+# Keywords: 
+# Compatibility: 
+# 
+# 
+
+# Commentary: 
+# 
+# 
+# 
+# 
+
+# Change Log:
+# 
+# 
+# 
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
+# 
+# 
+# ======================================================================
+# Code:
+
+# ======================================================================
 #
-# ================
+# Global Variables
+#
+# ======================================================================
+# Commands
 CURL=$(command -v curl)
 SH=$(command -v sh)
 GRIVE=$(command -v grive)
@@ -13,28 +61,62 @@ ONEDRIVE=$(command -v onedrive)
 GIT=$(command -v git)
 FETCH="${GIT} fetch --all"
 PULL="${GIT} pull --all"
+
+# Dirrctory
 DOTFILESSH_URL=https://gderber.github.io/dotfiles.sh
 GDRIVE_DIR=${HOME}/GDrive
 ONEDRIVE_DIR=${HOME}/Onedrive
 
+# ======================================================================
+#
+# __help
+#
+# Print help
+#
+# ======================================================================
 function __help () {
     cat << HELP
 ...
 HELP
 }
 
+# ======================================================================
+#
+# SystemUpdate
+#
+# ======================================================================
 function systemupdate () {
     cd /usr/local/src
     for DIR in $(ls -d *)
     do
-	cd $DIR
-	# if git repo ...
-	${PULL}
-	[[ -f Makefile ]] && make install
-	cd ..
+        cd $DIR
+        # if git repo ...
+        ${PULL}
+        [[ -f Makefile ]] && make install
+        cd ..
     done
 }
 
+# ======================================================================
+#
+#
+#
+# ======================================================================
+function setcrontab () {
+    CRONCMD="$(command -v nightly)"
+
+    #Add to Crontab
+    CRONJOB="0 23 * * * ${CRONCMD}"
+    ( crontab -l | grep -v -F "${CRONCMD}" ; echo "${CRONJOB}" ) | crontab -
+
+
+}
+
+# ======================================================================
+#
+#
+#
+# ======================================================================
 function userupdate () {
     local SEED=$(head -1 /dev/urandom | od -N 1 | awk '{ print $2 }'| sed s/^0*//)
     local RANDOM=$SEED # Reseed the random number generator
@@ -44,39 +126,49 @@ function userupdate () {
     sleep ${WAIT}s
     ${CURL} ${DOTFILESSH_URL} | ${SH}
 
-    if [[ -d ${GDRIVE_DIR} ]]; then
-	RALDON=${SEED}
-	let "WAIT=${RANDOM} % 60"
-	sleep ${WAIT}s
-	cd ${GDRIVE_DIR}
-	${GRIVE}
-    fi
-    if [[ -d ${ONEDRIVE_DIR} ]]; then
-	RALDON=${SEED}
-	let "WAIT=${RANDOM} % 60"
-	sleep ${WAIT}s
-	${ONEDRIVE}
-    fi    
+    for DIR in ${GDRIVE_DIR} ${ONEDRIVE_DIR}
+    do
+        if [[ -d  ${DIR} ]]; then
+            RALDON=${SEED}
+            let "WAIT=${RANDOM} % 60"
+            sleep ${WAIT}s
+            case ${DIR} in
+                ${ONEDRIVE_DIR})
+                    ${ONEDRIVE}
+                    ;;
+                ${GDRIVE_DIR})
+                    cd ${DIR}
+                    ${GRIVE}
+                    ;;
+            esac
+        fi
+        cd ${HOME}
+    done
 }
 
+# ======================================================================
+#
+#
+#
+# ======================================================================
 function main () {
     local SYSTEM=false
     while [[ -n $1 ]]
     do
-	case $1 in
-	    -s|--system)
-		SYSTEM=true
-		shift 1
-		;;
-	    -h|--help)
-		__help
-		exit
-		;;
-	    *)
-		__help
-		exit 1
-		;;
-	esac
+        case $1 in
+            -s|--system)
+                SYSTEM=true
+                shift 1
+                ;;
+            -h|--help)
+                __help
+                exit
+                ;;
+            *)
+                __help
+                exit 1
+                ;;
+        esac
     done
 
     if [[ "${SYSTEM}" == "true" ]]; then
@@ -86,3 +178,6 @@ function main () {
 }
 
 main $@
+
+#
+# nightly ends here
