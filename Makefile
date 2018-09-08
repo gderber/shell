@@ -1,5 +1,5 @@
 NAME=shell
-VERSION=0.0.1c
+VERSION=0.0.2
 DESCRIPTION="Simple shell scripts"
 
 SRCDIR=src
@@ -42,13 +42,22 @@ tag:
 release: $(PKG) $(SIG) tag
 
 install:
-	for dir in $(INSTALL_DIRS); do mkdir -p $(PREFIX)/$$dir; done
-	for file in $(INSTALL_FILES); do cp src/$$file $(PREFIX)/$$file; done
+	@for dir in $(INSTALL_DIRS); \
+	do \
+		mkdir -p $(PREFIX)/$$dir; \
+	done
+	@for file in $(INSTALL_FILES); \
+	do \
+		cp src/$$file $(PREFIX)/$$file; \
+	done
 	mkdir -p $(DOC_DIR)
 	cp -r $(DOC_FILES) $(DOC_DIR)/
 
 uninstall:
-	for file in $(INSTALL_FILES); do rm -f $(PREFIX)/$$file; done
+	@for file in $(INSTALL_FILES); \
+	do \
+		rm -f $(PREFIX)/$$file; \
+	done
 	rm -rf $(DOC_DIR)
 
 
