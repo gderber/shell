@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Sep  7 22:58:16 2018 (-0400)
+# Last-Updated: Fri Sep  7 23:32:48 2018 (-0400)
 #           By: Geoff S Derber
-#     Update #: 14
+#     Update #: 15
 # URL:
 # Doc URL:
 # Keywords:
@@ -191,6 +191,7 @@ function main () {
        systemupdate
     fi
     userupdate
+    setcrontab
 }
 
 main $@
