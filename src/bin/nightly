@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Sep  7 22:55:04 2018 (-0400)
+# Last-Updated: Fri Sep  7 22:58:16 2018 (-0400)
 #           By: Geoff S Derber
-#     Update #: 13
+#     Update #: 14
 # URL:
 # Doc URL:
 # Keywords:
@@ -142,7 +142,7 @@ function userupdate () {
 
     for DIR in ${GDRIVE_DIR} ${ONEDRIVE_DIR}
     do
-        if [ -d  ${DIR} ]; then
+        if [[ -d  ${DIR} ]]; then
             echo "Updating ${DIR}"
             RALDON=${SEED}
             let "WAIT=${RANDOM} % 60"
