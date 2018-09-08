@@ -10,27 +10,25 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Sep  7 22:05:13 2018 (-0400)
+# Last-Updated: Fri Sep  7 22:55:04 2018 (-0400)
 #           By: Geoff S Derber
-#     Update #: 10
-# URL: 
-# Doc URL: 
-# Keywords: 
-# Compatibility: 
-# 
-# 
-
+#     Update #: 13
+# URL:
+# Doc URL:
+# Keywords:
+# Compatibility:
+#
+#
 # Commentary: 
 # 
 # 
 # 
 # 
-
 # Change Log:
-# 
-# 
-# 
-# 
+#
+#
+#
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or (at
@@ -106,6 +104,8 @@ function systemupdate () {
         [[ -f Makefile ]] && make install
         cd ..
     done
+    echo "System Update Complete"
+    echo ""
 }
 
 # ======================================================================
@@ -130,16 +130,20 @@ function setcrontab () {
 # ======================================================================
 function userupdate () {
     local SEED=$(head -1 /dev/urandom | od -N 1 | awk '{ print $2 }'| sed s/^0*//)
-    local RANDOM=$SEED # Reseed the random number generator
+    local RANDOM=${SEED} # Reseed the random number generator
     local WAIT
     let "WAIT=${RANDOM} % 60"
 
     sleep ${WAIT}s
+    echo "Updating dotfiles"
     ${CURL} ${DOTFILESSH_URL} | ${SH}
+    echo "Dotfiles update complete"
+    echo ""
 
     for DIR in ${GDRIVE_DIR} ${ONEDRIVE_DIR}
     do
-        if [[ -d  ${DIR} ]]; then
+        if [ -d  ${DIR} ]; then
+            echo "Updating ${DIR}"
             RALDON=${SEED}
             let "WAIT=${RANDOM} % 60"
             sleep ${WAIT}s
@@ -154,6 +158,7 @@ function userupdate () {
             esac
         fi
         cd ${HOME}
+        echo "${DIR} update complete"
     done
 }
 
