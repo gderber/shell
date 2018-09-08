@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Sep  7 18:10:15 2018 (-0400)
+# Last-Updated: Fri Sep  7 22:05:13 2018 (-0400)
 #           By: Geoff S Derber
-#     Update #: 9
+#     Update #: 10
 # URL: 
 # Doc URL: 
 # Keywords: 
@@ -98,7 +98,11 @@ function systemupdate () {
     do
         cd $DIR
         # if git repo ...
-        ${PULL}
+        echo ""
+        echo "Updating ${DIR}..."
+        ${PULL} &&
+            echo "${DIR} successfully updated." ||
+                echo "${DIR} failed to update."
         [[ -f Makefile ]] && make install
         cd ..
     done
