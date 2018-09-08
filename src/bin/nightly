@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Sep  7 23:32:48 2018 (-0400)
+# Last-Updated: Fri Sep  7 23:43:36 2018 (-0400)
 #           By: Geoff S Derber
-#     Update #: 15
+#     Update #: 18
 # URL:
 # Doc URL:
 # Keywords:
@@ -118,6 +118,10 @@ function setcrontab () {
 
     #Add to Crontab
     CRONJOB="0 23 * * * ${CRONCMD}"
+    # Pipe contents of crontab to grep
+    # Grep removes cronjob if it exists
+    # Print crinjob
+    # Pipe alk of the above back to crontab
     ( crontab -l | grep -v -F "${CRONCMD}" ; echo "${CRONJOB}" ) | crontab -
 
 
