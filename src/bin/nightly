@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Dec  7 19:43:54 2018 (-0500)
+# Last-Updated: Fri Dec  7 21:23:00 2018 (-0500)
 #           By: Geoff S Derber
-#     Update #: 20
+#     Update #: 28
 # URL:
 # Doc URL:
 # Keywords:
@@ -143,6 +143,14 @@ function userupdate () {
     sleep ${WAIT}s
     echo "Updating dotfiles"
     ${CURL} ${DOTFILESSH_URL} | ${SH}
+    pushd ${HOME}/.emacs.d/
+    if [[ ! -d spacemacs ]]; then
+	git clone https://github.com/syl20bnr/spacemacs.git
+    else
+        cd spacemacs &&
+	    git pull origin master
+    fi
+    popd
     echo "Dotfiles update complete"
     echo ""
 
@@ -150,7 +158,7 @@ function userupdate () {
     do
         if [[ -d  ${DIR} ]]; then
             echo "Updating ${DIR}"
-            RALDON=${SEED}
+            RANDOM=${SEED}
             let "WAIT=${RANDOM} % 60"
             sleep ${WAIT}s
             case ${DIR} in
