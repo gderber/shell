@@ -17,6 +17,7 @@ HELP
 # ======
 function getusers () {
     local GROUP=${1}
+    local OPT=${2}
     local USERS
 
     if [[ -z ${GROUP} ]]; then
