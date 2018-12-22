@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Fri Dec  7 21:58:50 2018 (-0500)
+# Last-Updated: Sat Dec 22 09:00:19 2018 (-0500)
 #           By: Geoff S Derber
-#     Update #: 30
+#     Update #: 37
 # URL:
 # Doc URL:
 # Keywords:
@@ -102,8 +102,8 @@ function systemupdate () {
             echo "${DIR} successfully updated." ||
                 echo "${DIR} failed to update."
         [[ -f Makefile ]] &&
-	    git verify-commit $(git rev-parse HEAD)
-	    make install
+            git verify-commit $(git rev-parse HEAD) &&
+            make install
         cd ..
     done
     echo "System Update Complete"
@@ -134,6 +134,38 @@ function setcrontab () {
 #
 #
 # ======================================================================
+function getgpgkey () {
+    keyVal=$(gpg -K |
+                 awk '/sec/{if (length($2) > 0) print $2}' |
+                 sed 's|.*/0x||' )
+    echo -ne ${keyVal}
+}
+
+# ======================================================================
+#
+#
+#
+# ======================================================================
+function setgitconflocal () {
+    keyVal=$(getgpgkey)
+    if [[ ${UID} -lt 100000 ]]; then
+       fqdn=$(hostname -f)
+       useremail=${USER}@${fqdn}
+       username=${USER}
+    fi
+    cat << GITCONFLOCAL > ${HOME}/.gitconfig.local
+[user]
+  email = ${useremail}
+  name = ${username}
+  signingkey = ${keyVal}
+GITCONFLOCAL
+
+}
+# ======================================================================
+#
+#
+#
+# ======================================================================
 function userupdate () {
     local SEED=$(head -1 /dev/urandom | od -N 1 | awk '{ print $2 }'| sed s/^0*//)
     local RANDOM=${SEED} # Reseed the random number generator
@@ -145,12 +177,21 @@ function userupdate () {
     ${CURL} ${DOTFILESSH_URL} | ${SH}
     pushd ${HOME}/.emacs.d/
     if [[ ! -d spacemacs ]]; then
-	git clone https://github.com/syl20bnr/spacemacs.git
+        git clone https://github.com/syl20bnr/spacemacs.git
     else
         cd spacemacs &&
-	    git pull origin master
+            git pull origin master
     fi
     popd
+    if [[ ! -f ${HOME}/gitconfig.local ]]; then
+       keyVal=$(getgpgkey)
+       if [[ ! -n $keyVal ]]; then
+           gpg --full-generate-key --expert &&
+               keyVal=$(getgpgkey) &&
+               gpg --edit-key --expert $keyVal
+       fi
+       setgitconflocal
+    fi
     echo "Dotfiles update complete"
     echo ""
 

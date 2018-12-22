@@ -21,21 +21,25 @@ function getusers () {
     local USERS
 
     if [[ -z ${GROUP} ]]; then
-	USERS=$(getent passwd |awk -F : '$3 >= 1000 && $3 != 65534')
+        USERS=$(getent passwd |
+                    awk -F : '$3 >= 1000 && $3 != 65534')
     else
-	case ${GROUP} in
-	    system)
-		USERS=$(getent passwd |awk -F : '$3 < 1000')
-		;;
-	    localuser)
-		USERS=$(getent passwd \
-			    |awk -F : '$3 >= 1000 && \
-			    $3 != 65534 && $3 < 100000')
-		;;
-	    domain)
-		USERS=$(getent passwd |awk -F : '$3 >= 100000')
-		;;
-	esac
+        case ${GROUP} in
+            system)
+                USERS=$(getent passwd |
+                            awk -F : '$3 < 1000')
+                ;;
+            localuser)
+                USERS=$(getent passwd |
+                            awk -F : '$3 >= 1000 &&
+                            $3 != 65534 &&
+                            $3 < 100000')
+                ;;
+            domain)
+                USERS="$(getent passwd |
+                            awk -F : '$3 >= 100000')"
+                ;;
+        esac
     fi
     echo -ne "${USERS}"
 }
@@ -49,46 +53,44 @@ function main () {
     unset GROUP
     while [[ -n ${1} ]];
     do
-	case $1 in
-	    -s|--system)
-		GROUP=system
-		shift 1
-		;;
-	    -l|--local)
-		GROUP=localuser
-		shift 1
-		;;
-	    -d|--domain)
-		GROUP=domain
-		shift 1
-		;;
-	    -v|--verbose)
-		VERBOSE=true
-		shift 1
-		;;
-	    -h|--help)
-		__help
-		exit
-		;;
-	    *)
-		__help
-		exit 1
-		;;
-	esac
+        case $1 in
+            -s|--system)
+                GROUP=system
+                shift 1
+                ;;
+            -l|--local)
+                GROUP=localuser
+                shift 1
+                ;;
+            -d|--domain)
+                GROUP=domain
+                shift 1
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift 1
+                ;;
+            -h|--help)
+                __help
+                exit
+                ;;
+            *)
+                __help
+                exit 1
+                ;;
+        esac
     done
 
     USERS=$(getusers ${GROUP})
 
     for USR in ${USERS}
     do
-	if [[ "${VERBOSE}" == "true" ]]; then
-	    echo ${USR}
-	else
-	    echo ${USR}|cut -d: -f1
-	fi
+        if [[ "${VERBOSE}" == "true" ]]; then
+            echo "${USR}"
+        else
+            echo "${USR}"|cut -d: -f1
+        fi
     done
-    
-
 }
 
 main $@

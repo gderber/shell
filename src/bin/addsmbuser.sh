@@ -42,11 +42,11 @@ function getusername () {
     GN=${1}
     SN=${2}
     if [[ -z ${SN} ]]; then
-	USERNAME=$(echo ${GN}|sed 's/[^a-zA-Z0-9]//g'|tr [A-Z] [a-z])
+        USERNAME=$(echo ${GN}|sed 's/[^a-zA-Z0-9]//g'|tr [A-Z] [a-z])
     else
-	FI=$(echo ${GN}|cut -c1|sed 's/[^a-zA-Z0-9]//g'|tr [A-Z] [a-z])
-	SN=$(echo ${SN}|sed 's/[^a-zA-Z0-9]//g'|tr [A-Z] [a-z])
-	USERNAME=${FI}${SN}
+        FI=$(echo ${GN}|cut -c1|sed 's/[^a-zA-Z0-9]//g'|tr [A-Z] [a-z])
+        SN=$(echo ${SN}|sed 's/[^a-zA-Z0-9]//g'|tr [A-Z] [a-z])
+        USERNAME=${FI}${SN}
     fi
     echo -ne ${USERNAME}
 }
@@ -72,7 +72,7 @@ function addusers () {
     IDNUM=$(getmaxuid)
     DOMAIN=$(getdomain)
     INPUTFILE=userlist
-    
+
     while IFS='' read -r -u 3  LINE || [[ -n "$LINE" ]]
     do
 	GN="$(echo ${LINE} | cut -d\; -f1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
