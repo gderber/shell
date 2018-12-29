@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Sat Dec 22 09:00:19 2018 (-0500)
+# Last-Updated: Sat Dec 29 17:02:14 2018 (-0500)
 #           By: Geoff S Derber
-#     Update #: 37
+#     Update #: 42
 # URL:
 # Doc URL:
 # Keywords:
@@ -53,7 +53,7 @@
 # ======================================================================
 # Commands
 
-if ping -c1 git > /dev/null; then
+if ping -c1 git > /dev/null 2>&1 ; then
     REPO="--all"
 else
     REPO="github master"
@@ -112,46 +112,57 @@ function systemupdate () {
 
 # ======================================================================
 #
+# setcrontab
+#
+# ...
 #
 #
 # ======================================================================
 function setcrontab () {
-    CRONCMD="$(command -v nightly)"
+    if command -v nightly > /dev/null 2>&1 ; then
+        CRONCMD="$(command -v nightly)"
 
-    #Add to Crontab
-    CRONJOB="0 23 * * * ${CRONCMD}"
-    # Pipe contents of crontab to grep
-    # Grep removes cronjob if it exists
-    # Print crinjob
-    # Pipe alk of the above back to crontab
-    ( crontab -l | grep -v -F "${CRONCMD}" ; echo "${CRONJOB}" ) | crontab -
-
+        #Add to Crontab
+        CRONJOB="0 23 * * * ${CRONCMD}"
+        # Pipe contents of crontab to grep
+        # Grep removes cronjob if it exists
+        # Print crinjob
+        # Pipe alk of the above back to crontab
+        ( crontab -l | grep -v -F "${CRONCMD}" ; echo "${CRONJOB}" ) | crontab -
+    fi
 
 }
 
 # ======================================================================
 #
-#
+# getgpgkey
 #
 # ======================================================================
 function getgpgkey () {
     keyVal=$(gpg -K |
                  awk '/sec/{if (length($2) > 0) print $2}' |
-                 sed 's|.*/0x||' )
+                 sed 's|.*/0x||' |
+                 sort -u)
     echo -ne ${keyVal}
 }
 
 # ======================================================================
 #
-#
+# setgitconflocal
 #
 # ======================================================================
 function setgitconflocal () {
     keyVal=$(getgpgkey)
+    user=$(echo ${HOME}| sed 's|.*/||')
     if [[ ${UID} -lt 100000 ]]; then
        fqdn=$(hostname -f)
-       useremail=${USER}@${fqdn}
-       username=${USER}
+       useremail=${user}@${fqdn}
+       username=${user}
+    else
+        fqdn=$(hostname -f|cut -d. -f3-)
+        useremail=${user}@${fqdn}
+        username=${user}
+
     fi
     cat << GITCONFLOCAL > ${HOME}/.gitconfig.local
 [user]
@@ -161,9 +172,10 @@ function setgitconflocal () {
 GITCONFLOCAL
 
 }
+
 # ======================================================================
 #
-#
+# userupdate
 #
 # ======================================================================
 function userupdate () {
@@ -183,7 +195,7 @@ function userupdate () {
             git pull origin master
     fi
     popd
-    if [[ ! -f ${HOME}/gitconfig.local ]]; then
+    if [[ ! -f ${HOME}/.gitconfig.local ]]; then
        keyVal=$(getgpgkey)
        if [[ ! -n $keyVal ]]; then
            gpg --full-generate-key --expert &&
@@ -219,7 +231,7 @@ function userupdate () {
 
 # ======================================================================
 #
-#
+# main
 #
 # ======================================================================
 function main () {
