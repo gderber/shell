@@ -10,9 +10,9 @@
 # Created: Fri Sep  7 15:05:43 2018 (-0400)
 # Version: 0.0.2
 # Package-Requires: ()
-# Last-Updated: Sat Dec 29 17:02:14 2018 (-0500)
+# Last-Updated: Sun Jan  6 12:39:47 2019 (-0500)
 #           By: Geoff S Derber
-#     Update #: 42
+#     Update #: 45
 # URL:
 # Doc URL:
 # Keywords:
@@ -186,7 +186,10 @@ function userupdate () {
 
     sleep ${WAIT}s
     echo "Updating dotfiles"
-    ${CURL} ${DOTFILESSH_URL} | ${SH}
+    pushd .local/src/dotfiles &&
+        git pull origin master &&
+        make install
+    popd
     pushd ${HOME}/.emacs.d/
     if [[ ! -d spacemacs ]]; then
         git clone https://github.com/syl20bnr/spacemacs.git
