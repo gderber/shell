@@ -1,0 +1,177 @@
+#!/bin/bash
+# mountxen ---
+# 
+# Filename: mountxen
+# Description: 
+# Author: Geoff S Derber
+# Maintainer: 
+# Created: Thu Jan 10 10:11:33 2019 (-0500)
+# Version: 
+# Package-Requires: ()
+# Last-Updated: Sat Jan 12 14:38:50 2019 (-0500)
+#           By: Geoff S Derber
+#     Update #: 28
+# URL: 
+# Doc URL: 
+# Keywords: 
+# Compatibility: 
+# 
+# 
+
+# Commentary: 
+# 
+# 
+# 
+# 
+
+# Change Log:
+# 
+# 
+# 
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
+# 
+# 
+# ======================================================================
+# Code:
+
+# ======================================================================
+#
+# Global Variables
+#
+# ======================================================================
+#
+# ======================================================================
+#
+# function getmaxuid
+#
+# ======================================================================
+function __help () {
+    cat << HELP
+mountxen
+
+Mount Xen:
+Mount a xen host
+
+
+...
+HELP
+}
+
+# ======================================================================
+#
+# Mount
+#
+# ======================================================================
+function xencryptmount () {
+    local system
+    system=$1
+
+    diskdev=$(blkid|grep -i ${system}|cut -d\: -f1)
+    echo ${diskdev}
+
+    cryptsetup open ${diskdev} $system &&
+        sleep 60 &&
+        mount /xen/${system}/ &&
+        mount /xen/${system}/boot/ &&
+        mount /dev/nvme0n1p1 /xen/${system}/boot/efi/
+        mount -o bind /dev /xen/${system}/dev/ &&
+        mount -o bind /run /xen/${system}/run/ &&
+
+        chroot /xen/${system} /bin/bash -c "mount -t proc proc /proc" &&
+        chroot /xen/${system} /bin/bash -c "mount -t sysfs sys /sys"
+
+    #chroot /xen/${system}
+
+}
+
+# ======================================================================
+#
+# xencryptunmount
+#
+# 
+#
+# ======================================================================
+function xencryptunmount () {
+    local system
+    local diskdev
+    system=$1
+
+    echo $system
+
+    diskdev=$(blkid|grep -i ${system}|cut -d\: -f1)
+    echo ${diskdev}
+
+    chroot /xen/${system} /bin/bash -c "umount /sys" &&
+        chroot /xen/${system} /bin/bash -c "umount /proc" &&
+        umount /xen/${system}/run &&
+        umount /xen/${system}/dev &&
+        umount /xen/${system}/boot &&
+        umount /xen/${system}/
+
+    #cryptsetup close /dev/${diskdev} $system
+
+    #chroot /xen/${system}
+
+}
+
+
+# ======================================================================
+#
+# Main
+#
+# ======================================================================
+function main () {
+    local test
+    local system
+    local unmount
+
+    if [[ -z $1 ]]; then
+        __help
+        exit 1
+    else
+        while [ -n "$1" ]
+        do
+            case $1 in
+                --test|-t)
+                    test=true
+                    shift 1
+                    ;;
+                -h|--help|-\?)
+                    __help
+                    exit
+                    ;;
+                -u|--unmount)
+                    unmount=true
+                    ;;
+                *)
+                    system=$1
+                    shift 1
+                    ;;
+            esac
+        done
+
+        if [[ "${unmount}" == "true" ]]; then
+            xencryptunmount ${system}
+        else
+            xencryptmount ${system}
+        fi
+    fi
+}
+
+main "$@"
+
+
+# ==============================================================================
+# mountxen ends here
